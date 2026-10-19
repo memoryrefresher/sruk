@@ -1,0 +1,1374 @@
+<!--
+  Skin: "Legacy" (always loaded; "The Next Generation" is NextGeneration.axaml, layered on top of this file).
+
+  SeaRaider visual language — "night water".
+  Deep ocean navy instead of neutral black, a bioluminescent teal for the things you act on
+  (install, play, progress), and ship's brass for things you own (installed state, play time).
+  Glow is reserved for the primary action and the focused/hovered card.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Styles.Resources>
+    <!-- Palette ============================================================================== -->
+    <Color x:Key="AbyssColor">#071420</Color>        <!-- window background -->
+    <Color x:Key="RailColor">#0A1926</Color>         <!-- navigation rail -->
+    <Color x:Key="HullColor">#0F2131</Color>         <!-- cards / panels -->
+    <Color x:Key="DeckColor">#163044</Color>         <!-- raised, hovered, inputs -->
+    <Color x:Key="LineColor">#21405A</Color>         <!-- borders -->
+    <Color x:Key="FoamColor">#E3EDF2</Color>         <!-- primary text -->
+    <Color x:Key="MistColor">#8EA6B5</Color>         <!-- secondary text -->
+    <Color x:Key="BiolumeColor">#3FE0C5</Color>      <!-- action accent -->
+    <Color x:Key="BiolumeBrightColor">#7BF0DA</Color>
+    <Color x:Key="BrassColor">#E2AA4E</Color>        <!-- ownership accent -->
+    <Color x:Key="CoralColor">#FF7A70</Color>        <!-- errors / destructive -->
+
+    <SolidColorBrush x:Key="AbyssBrush" Color="{StaticResource AbyssColor}" />
+    <SolidColorBrush x:Key="RailBrush" Color="{StaticResource RailColor}" />
+    <SolidColorBrush x:Key="HullBrush" Color="{StaticResource HullColor}" />
+    <SolidColorBrush x:Key="DeckBrush" Color="{StaticResource DeckColor}" />
+    <SolidColorBrush x:Key="LineBrush" Color="{StaticResource LineColor}" />
+    <SolidColorBrush x:Key="FoamBrush" Color="{StaticResource FoamColor}" />
+    <SolidColorBrush x:Key="MistBrush" Color="{StaticResource MistColor}" />
+    <SolidColorBrush x:Key="BiolumeBrush" Color="{StaticResource BiolumeColor}" />
+    <SolidColorBrush x:Key="BiolumeBrightBrush" Color="{StaticResource BiolumeBrightColor}" />
+    <SolidColorBrush x:Key="BrassBrush" Color="{StaticResource BrassColor}" />
+    <SolidColorBrush x:Key="CoralBrush" Color="{StaticResource CoralColor}" />
+    <SolidColorBrush x:Key="CoralWashBrush" Color="#2AFF7A70" />
+
+    <!-- Fade used over hero art so text stays legible. -->
+    <LinearGradientBrush x:Key="HeroScrimBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#33071420" />
+      <GradientStop Offset="0.55" Color="#B3071420" />
+      <GradientStop Offset="1" Color="#FF071420" />
+    </LinearGradientBrush>
+
+    <!-- Shown behind cards while cover art loads / when a game has no art. -->
+    <LinearGradientBrush x:Key="CoverPlaceholderBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Offset="0" Color="#163044" />
+      <GradientStop Offset="1" Color="#0B1B29" />
+    </LinearGradientBrush>
+
+    <!-- Fluent theme overrides so built-in controls pick up the palette. -->
+    <Color x:Key="SystemAccentColor">#3FE0C5</Color>
+    <Color x:Key="SystemAccentColorLight1">#7BF0DA</Color>
+    <Color x:Key="SystemAccentColorLight2">#A9F6E8</Color>
+    <Color x:Key="SystemAccentColorDark1">#22B79F</Color>
+    <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource HullColor}" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource DeckColor}" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource DeckColor}" />
+    <SolidColorBrush x:Key="TextControlBorderBrush" Color="{StaticResource LineColor}" />
+    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="{StaticResource BiolumeColor}" />
+    <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
+
+    <!-- Scroll bars: wide, always visible and easy to grab (the Fluent default is a hairline that only grows on hover). -->
+    <x:Double x:Key="ScrollBarSize">18</x:Double>
+    <SolidColorBrush x:Key="ScrollBarTrackFill" Color="#33163044" />
+    <SolidColorBrush x:Key="ScrollBarTrackFillPointerOver" Color="#66163044" />
+    <SolidColorBrush x:Key="ScrollBarThumbFill" Color="#8E3FE0C5" />
+    <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#CC7BF0DA" />
+    <SolidColorBrush x:Key="ScrollBarThumbFillPressed" Color="#FF7BF0DA" />
+  </Styles.Resources>
+
+  <!-- Scroll bars never hide and never shrink to a thin line: big target, no hunting for it with the mouse. -->
+  <Style Selector="ScrollViewer">
+    <Setter Property="AllowAutoHide" Value="False" />
+  </Style>
+  <Style Selector="ScrollBar">
+    <Setter Property="AllowAutoHide" Value="False" />
+  </Style>
+  <Style Selector="ScrollBar:vertical">
+    <Setter Property="MinWidth" Value="18" />
+  </Style>
+  <Style Selector="ScrollBar:horizontal">
+    <Setter Property="MinHeight" Value="18" />
+  </Style>
+
+  <!-- Window =================================================================================== -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource AbyssBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+
+  <!-- Typography ============================================================================= -->
+  <Style Selector="TextBlock.display">
+    <Setter Property="FontSize" Value="40" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LineHeight" Value="44" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.h1">
+    <Setter Property="FontSize" Value="28" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="TextBlock.h2">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.body">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="LineHeight" Value="22" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="MaxWidth" Value="720" />
+  </Style>
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="TextBlock.small">
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <Style Selector="TextBlock.brass">
+    <Setter Property="Foreground" Value="{DynamicResource BrassBrush}" />
+  </Style>
+  <Style Selector="TextBlock.coral">
+    <Setter Property="Foreground" Value="{DynamicResource CoralBrush}" />
+  </Style>
+
+  <!-- Buttons ================================================================================ -->
+  <!-- Primary: the one thing to do on screen (Download & Install / Play). -->
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AbyssBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="20,11" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BiolumeBrightBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AbyssBrush}" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AbyssBrush}" />
+  </Style>
+  <Style Selector="Button.primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+
+  <!-- Brass: Play in the Library, where ownership is the point. -->
+  <Style Selector="Button.brass">
+    <Setter Property="Background" Value="{DynamicResource BrassBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AbyssBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Padding" Value="18,9" />
+  </Style>
+  <Style Selector="Button.brass:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#F0C47A" />
+    <Setter Property="Foreground" Value="{DynamicResource AbyssBrush}" />
+  </Style>
+  <Style Selector="Button.brass:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+
+  <!-- Quiet: secondary actions. -->
+  <Style Selector="Button.quiet">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+    <Setter Property="Padding" Value="14,8" />
+  </Style>
+  <Style Selector="Button.quiet:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MistBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+
+  <Style Selector="Button.danger">
+    <Setter Property="Background" Value="{DynamicResource CoralWashBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource CoralBrush}" />
+    <Setter Property="Padding" Value="14,8" />
+  </Style>
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource CoralBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AbyssBrush}" />
+  </Style>
+
+  <!-- Text-only link-style button. -->
+  <Style Selector="Button.link">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrightBrush}" />
+  </Style>
+
+  <!-- Small square icon button (queue arrows, menus). The icon is a stroked Path. -->
+  <Style Selector="Button.icon">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="Width" Value="30" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.icon Path">
+    <Setter Property="Stroke" Value="{DynamicResource MistBrush}" />
+    <Setter Property="StrokeThickness" Value="1.8" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+  </Style>
+  <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+  </Style>
+  <Style Selector="Button.icon:pointerover Path">
+    <Setter Property="Stroke" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="Button.icon:disabled Path">
+    <Setter Property="Opacity" Value="0.3" />
+  </Style>
+
+  <!-- Source tabs on a merged store page: outlined, teal when selected. -->
+  <Style Selector="Button.source-tab">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="12,7" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.source-tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="Button.source-tab.selected">
+    <Setter Property="Background" Value="#1F3FE0C5" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+  <Style Selector="Button.source-tab.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#2E3FE0C5" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+  <Style Selector="TextBlock.source-name">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="TextBlock.source-detail">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+
+  <!-- Download options on the store page (selectable rows). -->
+  <Style Selector="Button.mirror-option">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.mirror-option:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="Button.mirror-option.selected">
+    <Setter Property="Background" Value="#1F3FE0C5" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+  <Style Selector="Button.mirror-option.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#2E3FE0C5" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+  <Style Selector="Border.tag">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="6,1" />
+  </Style>
+  <Style Selector="Border.tag > TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+
+  <!-- Mirror list on the store page. -->
+  <Style Selector="ListBox.mirrors">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="ListBox.mirrors ListBoxItem">
+    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="Margin" Value="0,0,0,4" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+  </Style>
+  <Style Selector="ListBox.mirrors ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#1F3FE0C5" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+  <Style Selector="ListBox.mirrors ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+  </Style>
+
+  <!-- Friends & Chat overlay ================================================================== -->
+  <!-- The host is the window's right-hand column: its width eases 0 → 360, so the pages shrink beside it (pushed left)
+       rather than sitting under it. -->
+  <Style Selector="Border.friends-host">
+    <Setter Property="Width" Value="0" />
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Width" Duration="0:0:0.28" Easing="CubicEaseInOut" />
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.friends-host.open">
+    <Setter Property="Width" Value="360" />
+    <Setter Property="Opacity" Value="1" />
+    <Setter Property="IsHitTestVisible" Value="True" />
+  </Style>
+  <Style Selector="Border.friends-overlay">
+    <Setter Property="Background" Value="#F20A1926" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1,0,0,0" />
+    <!-- Beside the pages now, not over them: a dividing line, no drop shadow. -->
+    <Setter Property="BoxShadow" Value="none" />
+  </Style>
+  <Style Selector="Border.friends-header">
+    <Setter Property="Padding" Value="16,52,16,14" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="Border.friend-code">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="12,8" />
+  </Style>
+  <Style Selector="TextBox.name-edit">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="Padding" Value="6,4" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="TextBlock.section-title">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="1.2" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+
+  <!-- Avatars: initial on a deck-coloured disc. -->
+  <Style Selector="Border.avatar">
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="36" />
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Border.avatar.large">
+    <Setter Property="Width" Value="48" />
+    <Setter Property="Height" Value="48" />
+    <Setter Property="CornerRadius" Value="24" />
+  </Style>
+  <Style Selector="Border.avatar > TextBlock">
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+
+  <!-- Presence: grey offline, teal online, brass in-game, muted amber away. -->
+  <Style Selector="Ellipse.presence-dot">
+    <Setter Property="Width" Value="9" />
+    <Setter Property="Height" Value="9" />
+    <Setter Property="Fill" Value="#5B7282" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Ellipse.presence-dot.badge">
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Height" Value="12" />
+    <Setter Property="Stroke" Value="{DynamicResource RailBrush}" />
+    <Setter Property="StrokeThickness" Value="2" />
+  </Style>
+  <Style Selector="Ellipse.presence-dot.online">
+    <Setter Property="Fill" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+  <Style Selector="Ellipse.presence-dot.away">
+    <Setter Property="Fill" Value="#B98C3E" />
+  </Style>
+  <Style Selector="Ellipse.presence-dot.ingame">
+    <Setter Property="Fill" Value="{DynamicResource BrassBrush}" />
+  </Style>
+  <Style Selector="TextBlock.presence-text">
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="TextBlock.presence-text.ingame">
+    <Setter Property="Foreground" Value="{DynamicResource BrassBrush}" />
+  </Style>
+
+  <Style Selector="Button.friend-row">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="8,7" />
+    <Setter Property="Margin" Value="-8,0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.friend-row:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+  </Style>
+  <Style Selector="Button.friend-row.offline">
+    <Setter Property="Opacity" Value="0.6" />
+  </Style>
+  <Style Selector="Border.friend-request">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrassBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="12" />
+  </Style>
+  <Style Selector="Border.unread">
+    <Setter Property="Background" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="MinWidth" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="Padding" Value="5,0" />
+  </Style>
+  <Style Selector="Border.unread > TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{DynamicResource AbyssBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Chat -->
+  <Style Selector="Border.chat-header">
+    <Setter Property="Padding" Value="8,10,16,10" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="Border.compose">
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+  </Style>
+  <Style Selector="StackPanel.message">
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+  <Style Selector="StackPanel.message.mine">
+    <Setter Property="HorizontalAlignment" Value="Right" />
+  </Style>
+  <Style Selector="Border.bubble">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="CornerRadius" Value="12,12,12,4" />
+    <Setter Property="Padding" Value="11,7" />
+  </Style>
+  <Style Selector="Border.bubble.mine">
+    <Setter Property="Background" Value="#2A3FE0C5" />
+    <Setter Property="CornerRadius" Value="12,12,4,12" />
+  </Style>
+  <Style Selector="Border.bubble.emote-only">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="2" />
+  </Style>
+  <Style Selector="TextBlock.chat-text">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="LineHeight" Value="19" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="Button.emote-pick">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="Margin" Value="2" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="Button.emote-pick:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+  </Style>
+
+  <!-- Animated emotes: each animation is a class on the emote glyph. -->
+  <Style Selector="TextBlock.emote">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="Margin" Value="1,0" />
+    <Setter Property="RenderTransformOrigin" Value="50%,60%" />
+  </Style>
+  <Style Selector="Border.emote-only TextBlock.emote">
+    <Setter Property="FontSize" Value="36" />
+  </Style>
+  <Style Selector="TextBlock.emote.bounce">
+    <Style.Animations>
+      <Animation Duration="0:0:1.1" IterationCount="Infinite" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.Y" Value="0" /></KeyFrame>
+        <KeyFrame Cue="35%"><Setter Property="TranslateTransform.Y" Value="-6" /></KeyFrame>
+        <KeyFrame Cue="70%"><Setter Property="TranslateTransform.Y" Value="0" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.Y" Value="0" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="TextBlock.emote.wobble">
+    <Style.Animations>
+      <Animation Duration="0:0:1.4" IterationCount="Infinite" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0" /></KeyFrame>
+        <KeyFrame Cue="25%"><Setter Property="RotateTransform.Angle" Value="-14" /></KeyFrame>
+        <KeyFrame Cue="50%"><Setter Property="RotateTransform.Angle" Value="12" /></KeyFrame>
+        <KeyFrame Cue="75%"><Setter Property="RotateTransform.Angle" Value="-6" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="0" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="TextBlock.emote.pulse">
+    <Style.Animations>
+      <Animation Duration="0:0:1" IterationCount="Infinite" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="ScaleTransform.ScaleX" Value="1" /><Setter Property="ScaleTransform.ScaleY" Value="1" /></KeyFrame>
+        <KeyFrame Cue="50%"><Setter Property="ScaleTransform.ScaleX" Value="1.22" /><Setter Property="ScaleTransform.ScaleY" Value="1.22" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="ScaleTransform.ScaleX" Value="1" /><Setter Property="ScaleTransform.ScaleY" Value="1" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="TextBlock.emote.spin">
+    <Style.Animations>
+      <Animation Duration="0:0:2.4" IterationCount="Infinite">
+        <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="TextBlock.emote.float">
+    <Style.Animations>
+      <Animation Duration="0:0:2.2" IterationCount="Infinite" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.Y" Value="1" /><Setter Property="RotateTransform.Angle" Value="-4" /></KeyFrame>
+        <KeyFrame Cue="50%"><Setter Property="TranslateTransform.Y" Value="-4" /><Setter Property="RotateTransform.Angle" Value="4" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.Y" Value="1" /><Setter Property="RotateTransform.Angle" Value="-4" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="TextBlock.emote.shake">
+    <Style.Animations>
+      <Animation Duration="0:0:0.9" IterationCount="Infinite">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.X" Value="0" /></KeyFrame>
+        <KeyFrame Cue="15%"><Setter Property="TranslateTransform.X" Value="-2" /></KeyFrame>
+        <KeyFrame Cue="30%"><Setter Property="TranslateTransform.X" Value="2" /></KeyFrame>
+        <KeyFrame Cue="45%"><Setter Property="TranslateTransform.X" Value="-2" /></KeyFrame>
+        <KeyFrame Cue="60%"><Setter Property="TranslateTransform.X" Value="0" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.X" Value="0" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Toast for incoming messages while the panel is closed. -->
+  <Style Selector="Button.toast">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="MaxWidth" Value="360" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.toast:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrightBrush}" />
+  </Style>
+
+  <!-- Settings tabs: Fluent's default tab headers are display-sized; keep them in proportion. -->
+  <Style Selector="TabControl.settings TabItem">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="MinHeight" Value="38" />
+    <Setter Property="Padding" Value="0,0,26,0" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="TabControl.settings TabItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="TabControl.settings TabItem:selected /template/ Border#PART_SelectedPipe">
+    <Setter Property="Background" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+
+  <!-- Queue position number in the Download Manager. -->
+  <Style Selector="TextBlock.queue-number">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Glow halo around the primary call to action. -->
+  <Style Selector="Border.glow">
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="BoxShadow" Value="0 0 18 0 #553FE0C5" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.glow:pointerover">
+    <Setter Property="BoxShadow" Value="0 0 32 4 #993FE0C5" />
+  </Style>
+
+  <!-- Bare: a clickable region with no button chrome (card art + title). -->
+  <Style Selector="Button.bare">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.bare:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.bare:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.bare:pressed">
+    <Setter Property="RenderTransform" Value="none" />
+  </Style>
+
+  <!-- Store cards ============================================================================== -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.18" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.card:pointerover">
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="BoxShadow" Value="0 0 26 0 #443FE0C5" />
+  </Style>
+  <Style Selector="Border.card.installed">
+    <Setter Property="BorderBrush" Value="#55E2AA4E" />
+  </Style>
+
+  <!-- Plain panels (no hover behaviour). -->
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="20" />
+  </Style>
+
+  <!-- Genre / state chips. -->
+  <Style Selector="Border.chip">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="8,3" />
+  </Style>
+  <Style Selector="Border.chip > TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="Border.chip.owned">
+    <Setter Property="Background" Value="#33E2AA4E" />
+  </Style>
+  <Style Selector="Border.chip.owned > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource BrassBrush}" />
+  </Style>
+
+  <!-- Verification-needed banner (brass: it's about you, not an error). -->
+  <Style Selector="Border.verify-banner">
+    <Setter Property="Background" Value="#26E2AA4E" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrassBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="14,10" />
+  </Style>
+
+  <Style Selector="Border.notice-banner">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="16,12" />
+  </Style>
+
+  <!-- Info pills on the store page: small label above the value. -->
+  <Style Selector="Border.pill">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="14,8" />
+    <Setter Property="MinWidth" Value="120" />
+  </Style>
+  <Style Selector="TextBlock.pill-label">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="TextBlock.pill-value">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+
+  <!-- Inline error banner. -->
+  <Style Selector="Border.error-banner">
+    <Setter Property="Background" Value="{DynamicResource CoralWashBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CoralBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="14,10" />
+  </Style>
+
+  <!-- Running setup status in the Library; brass when the setup is waiting on the user. -->
+  <Style Selector="Border.setup-status">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="Margin" Value="0,4,0,0" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+  <Style Selector="Border.setup-status.attention">
+    <Setter Property="Background" Value="#29E2AA4E" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BrassBrush}" />
+  </Style>
+
+  <!-- Progress ================================================================================ -->
+  <Style Selector="ProgressBar">
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="MinHeight" Value="6" />
+    <Setter Property="Height" Value="6" />
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+  <Style Selector="ProgressBar.extract">
+    <Setter Property="Foreground" Value="{DynamicResource BrassBrush}" />
+  </Style>
+  <Style Selector="ProgressBar.thin">
+    <Setter Property="MinHeight" Value="3" />
+    <Setter Property="Height" Value="3" />
+  </Style>
+
+  <!-- Navigation rail =========================================================================== -->
+  <Style Selector="ListBox.rail">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem">
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="Margin" Value="0,2" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <!-- The small light bar next to the active destination. -->
+  <Style Selector="ListBox.rail ListBoxItem Border.rail-marker">
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:selected Border.rail-marker">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- Media thumbnails on the store page. -->
+  <Style Selector="ListBox.thumbs">
+    <Setter Property="Background" Value="Transparent" />
+    <!-- The scroll bar gets its own row under the pictures (auto-hide mode lays it over them), with a small gap. -->
+    <Setter Property="ScrollViewer.AllowAutoHide" Value="False" />
+    <Setter Property="Padding" Value="0,0,0,6" />
+  </Style>
+  <!-- A slim scroll bar for the strip (the app-wide one is a wide, easy-to-grab 18 px). -->
+  <Style Selector="ListBox.thumbs ScrollBar:horizontal">
+    <Setter Property="MinHeight" Value="6" />
+  </Style>
+  <Style Selector="ListBox.thumbs ScrollBar:horizontal /template/ RepeatButton#PART_LineUpButton">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="ListBox.thumbs ScrollBar:horizontal /template/ RepeatButton#PART_LineDownButton">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="ListBox.thumbs ScrollBar:horizontal /template/ Thumb">
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="0,0,8,0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Opacity" Value="0.6" />
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem:pointerover">
+    <Setter Property="Opacity" Value="0.9" />
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem:selected">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.thumbs ListBoxItem:selected Border.thumb-frame">
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+
+  <!-- Skin plumbing ============================================================================ -->
+  <!-- Parts only "The Next Generation" shows; NextGeneration.axaml switches them on (and Legacy-only parts off). -->
+  <Style Selector="Panel.backdrop">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="TextBlock.hero-ngen">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector=":is(Control).ngen-only">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="TextBlock.hero-legacy">
+    <Setter Property="FontSize" Value="40" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LineHeight" Value="44" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="Border.hero">
+    <Setter Property="CornerRadius" Value="14" />
+  </Style>
+  <Style Selector="Border.nav-rail">
+    <Setter Property="Background" Value="{DynamicResource RailBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,0" />
+  </Style>
+  <Style Selector="Border.status-bar">
+    <Setter Property="Background" Value="{DynamicResource RailBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+  </Style>
+  <Style Selector="Border.dialog">
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BoxShadow" Value="0 24 64 0 #99000000" />
+  </Style>
+
+  <!-- The × on a store card: hides that game from the store (undo in the bar that appears, or in Settings). -->
+  <Style Selector="Button.card-hide">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Background" Value="#66000000" />
+    <Setter Property="BorderBrush" Value="#40FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.card-hide Path">
+    <Setter Property="Stroke" Value="#F2FFFFFF" />
+    <Setter Property="StrokeThickness" Value="2" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="Width" Value="10" />
+    <Setter Property="Height" Value="10" />
+  </Style>
+  <!-- Only while the pointer is over the card. -->
+  <Style Selector="Border.card:pointerover Button.card-hide">
+    <Setter Property="Opacity" Value="0.85" />
+    <Setter Property="IsHitTestVisible" Value="True" />
+  </Style>
+  <Style Selector="Button.card-hide:pointerover">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Button.card-hide:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#D9000000" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CoralBrush}" />
+  </Style>
+
+  <!-- Download steps (Download → Unpack → Install / Ready to play) ============================== -->
+  <Style Selector="Border.step">
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Border.step > TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="Border.step.current">
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="Background" Value="#263FE0C5" />
+  </Style>
+  <Style Selector="Border.step.current > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Border.step.done">
+    <Setter Property="BorderBrush" Value="#663FE0C5" />
+  </Style>
+  <Style Selector="Border.step.done > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+  <Style Selector="Border.step-line">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="1" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource LineBrush}" />
+  </Style>
+  <!-- Disclosure toggles ("Details", "Download options", "Advanced options"): text and a chevron, no grey boxes. -->
+  <Style Selector="ToggleButton.disclosure">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="ToggleButton.disclosure.header">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+  <Style Selector="ToggleButton.disclosure /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="ToggleButton.disclosure:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.disclosure:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ToggleButton.disclosure:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="ToggleButton.disclosure:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ToggleButton.disclosure:pressed">
+    <Setter Property="RenderTransform" Value="none" />
+  </Style>
+  <Style Selector="TextBlock.disclosure-title">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="Path.chevron">
+    <Setter Property="Stroke" Value="{DynamicResource MistBrush}" />
+    <Setter Property="StrokeThickness" Value="1.8" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="Width" Value="10" />
+    <Setter Property="Height" Value="10" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleButton.disclosure:checked Path.chevron">
+    <Setter Property="RenderTransform" Value="rotate(180deg)" />
+  </Style>
+  <Style Selector="ToggleButton.disclosure:pointerover Path.chevron">
+    <Setter Property="Stroke" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="Border.options-card">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="14,12" />
+  </Style>
+
+  <!-- Download rows -->
+  <Style Selector="TextBlock.job-percent">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.job-headline">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource FoamBrush}" />
+  </Style>
+  <Style Selector="Button.icon.more Ellipse">
+    <Setter Property="Fill" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="Button.icon.more:pointerover Ellipse">
+    <Setter Property="Fill" Value="{DynamicResource FoamBrush}" />
+  </Style>
+
+  <!-- Inputs -->
+  <Style Selector="TextBox">
+    <Setter Property="Padding" Value="12,9" />
+    <Setter Property="MinHeight" Value="40" />
+  </Style>
+
+  <!-- Coming soon shelf ========================================================================== -->
+  <!-- A tile lifts and glows under the pointer; the whole tile opens the game's coming-soon page. -->
+  <Style Selector="Button.upcoming-tile">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="#3348C9D6" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="RenderTransform" Value="scale(1)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <!-- Button has no BoxShadow of its own: the glow goes on its template's presenter. -->
+  <Style Selector="Button.upcoming-tile /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.upcoming-tile:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1.04)" />
+    <Setter Property="ZIndex" Value="1" />
+  </Style>
+  <Style Selector="Button.upcoming-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="BoxShadow" Value="0 10 30 0 #553FE0C5" />
+  </Style>
+  <Style Selector="Button.upcoming-tile:pressed">
+    <Setter Property="RenderTransform" Value="scale(1.01)" />
+  </Style>
+
+  <!-- The heart on a tile / the wishlist toggle. -->
+  <Style Selector="Button.wish-heart">
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="36" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="Background" Value="#CC071420" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.wish-heart Path">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="Stroke" Value="{DynamicResource FoamBrush}" />
+    <Setter Property="StrokeThickness" Value="1.8" />
+    <Setter Property="Fill" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.wish-heart:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#E6071420" />
+  </Style>
+  <Style Selector="Button.wish-heart.on Path">
+    <Setter Property="Stroke" Value="{DynamicResource CoralBrush}" />
+    <Setter Property="Fill" Value="{DynamicResource CoralBrush}" />
+  </Style>
+
+  <!-- The big wishlist button on a coming-soon page: brass once the game is on the wishlist. -->
+  <Style Selector="Button.wish-big">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="Padding" Value="20,14" />
+    <Setter Property="FontSize" Value="16" />
+  </Style>
+  <Style Selector="Button.wish-big Path">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="StrokeThickness" Value="2" />
+    <Setter Property="Stroke" Value="{DynamicResource AbyssBrush}" />
+    <Setter Property="Fill" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.wish-big.on Path">
+    <Setter Property="Fill" Value="{DynamicResource AbyssBrush}" />
+  </Style>
+
+  <!-- Coming-soon page pop-out (its pop-in animation is in Motion.axaml). -->
+  <Style Selector="Border.popout">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="#4D48C9D6" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="BoxShadow" Value="0 30 90 0 #D9000000" />
+  </Style>
+  <Style Selector="Button.popout-close">
+    <Setter Property="Width" Value="40" />
+    <Setter Property="Height" Value="40" />
+    <Setter Property="CornerRadius" Value="20" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="#CC071420" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.popout-close Path">
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="Stroke" Value="{DynamicResource FoamBrush}" />
+    <Setter Property="StrokeThickness" Value="2" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+  </Style>
+
+  <!-- A game shared in chat. -->
+  <Style Selector="Border.share-card">
+    <Setter Property="Width" Value="250" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="StackPanel.message.mine Border.share-card">
+    <Setter Property="HorizontalAlignment" Value="Right" />
+  </Style>
+
+  <!-- Media tab: video / stream boxes ============================================================ -->
+  <Style Selector="Button.media-tile">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="#3348C9D6" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="RenderTransform" Value="scale(1)" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.media-tile:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1.03)" />
+    <Setter Property="ZIndex" Value="1" />
+  </Style>
+  <Style Selector="Button.media-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="BoxShadow" Value="0 10 30 0 #553FE0C5" />
+  </Style>
+  <Style Selector="Border.media-play">
+    <Setter Property="Background" Value="#B3071420" />
+    <Setter Property="BorderBrush" Value="#99FFFFFF" />
+    <Setter Property="BorderThickness" Value="1.5" />
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.media-tile:pointerover Border.media-play">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Border.live-badge">
+    <Setter Property="Background" Value="#E6E5484D" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="7,2" />
+  </Style>
+  <Style Selector="Border.live-badge TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+
+  <!-- Media tab: share button on a box (shown on hover) -->
+  <Style Selector="Button.media-share">
+    <Setter Property="Width" Value="32" />
+    <Setter Property="Height" Value="32" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="Background" Value="#B3071420" />
+    <Setter Property="BorderBrush" Value="#66FFFFFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.media-tile:pointerover Button.media-share">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="Button.media-share:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#E63FE0C5" />
+    <Setter Property="BorderBrush" Value="#FFFFFFFF" />
+  </Style>
+
+  <!-- Media › Shared: posts, reactions, comments ================================================ -->
+  <Style Selector="Border.share-post">
+    <Setter Property="Background" Value="{DynamicResource HullBrush}" />
+    <Setter Property="BorderBrush" Value="#2648C9D6" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="18" />
+  </Style>
+  <Style Selector="Border.share-hint">
+    <Setter Property="Background" Value="#1FE2AA4E" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="12,8" />
+  </Style>
+  <Style Selector="Border.share-hint TextBlock.small">
+    <Setter Property="Foreground" Value="{DynamicResource BrassBrush}" />
+  </Style>
+  <Style Selector="Button.share-title">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.share-title:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.share-title:pointerover TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrightBrush}" />
+  </Style>
+  <Style Selector="Border.time-badge">
+    <Setter Property="Background" Value="#D9071420" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="7,2" />
+  </Style>
+  <Style Selector="Border.time-badge TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+
+  <Style Selector="Button.react-chip">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.react-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="Button.react-chip.mine">
+    <Setter Property="Background" Value="#263FE0C5" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+  <Style Selector="Button.react-chip.mine:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#383FE0C5" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+  </Style>
+  <Style Selector="TextBlock.react-count">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource MistBrush}" />
+  </Style>
+  <Style Selector="Button.react-chip.mine TextBlock.react-count">
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrightBrush}" />
+  </Style>
+
+  <Style Selector="Border.comment-bubble">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="CornerRadius" Value="4,12,12,12" />
+    <Setter Property="Padding" Value="12,8" />
+  </Style>
+  <Style Selector="Button.time-chip">
+    <Setter Property="Background" Value="#1A3FE0C5" />
+    <Setter Property="BorderBrush" Value="#553FE0C5" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrightBrush}" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Button.time-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#333FE0C5" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource BiolumeBrightBrush}" />
+  </Style>
+
+  <!-- A friend in a share / invite menu (the row itself isn't a button: it holds Share and Invite). -->
+  <Style Selector="Border.friend-pick">
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+
+  <!-- Invites in chat; "Watching" in the friends list; Watch along. -->
+  <Style Selector="Border.invite-card">
+    <Setter Property="Background" Value="{DynamicResource DeckBrush}" />
+    <Setter Property="BorderBrush" Value="#553FE0C5" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="Width" Value="270" />
+  </Style>
+  <Style Selector="StackPanel.message.mine Border.invite-card">
+    <Setter Property="HorizontalAlignment" Value="Right" />
+  </Style>
+  <Style Selector="TextBlock.presence-text.watching">
+    <Setter Property="Foreground" Value="#FF9C8CFF" />
+  </Style>
+  <Style Selector="Ellipse.presence-dot.watching">
+    <Setter Property="Fill" Value="#FF9C8CFF" />
+  </Style>
+  <Style Selector="Border.follow-banner">
+    <Setter Property="Background" Value="#339C8CFF" />
+    <Setter Property="BorderBrush" Value="#999C8CFF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="12,4" />
+  </Style>
+</Styles>

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    SeaRaider.Core — UI-agnostic domain + services.
+    No Avalonia references here, so the engine can be unit-tested or reused by a CLI/WinUI front end.
+  -->
+  <PropertyGroup>
+    <RootNamespace>SeaRaider.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="LiteDB" />
+    <PackageReference Include="MonoTorrent" />
+    <PackageReference Include="SharpCompress" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SeaRaider.Core.Tests" />
+  </ItemGroup>
+</Project>

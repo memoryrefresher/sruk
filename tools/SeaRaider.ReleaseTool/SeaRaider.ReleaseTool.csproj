@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Publisher's tool: makes the update signing key and signs each release's latest.json (README › Updates). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SeaRaider.ReleaseTool</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SeaRaider.Core\SeaRaider.Core.csproj" />
+  </ItemGroup>
+</Project>
