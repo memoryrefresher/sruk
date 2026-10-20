@@ -1,0 +1,476 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:SeaRaider.App.ViewModels"
+        xmlns:sys="using:System"
+        xmlns:views="using:SeaRaider.App.Views"
+        xmlns:services="using:SeaRaider.App.Services"
+        xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+        x:Class="SeaRaider.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="SeaRaider"
+        Icon="/Assets/SeaRaider.ico"
+        Width="1380" Height="860" MinWidth="1000" MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="44">
+
+  <Window.KeyBindings>
+    <!-- Friends & Chat overlay, like Steam's Shift+Tab (Shift+Tab itself moves keyboard focus here). -->
+    <KeyBinding Gesture="Ctrl+Shift+F" Command="{Binding Friends.ToggleCommand}" />
+  </Window.KeyBindings>
+
+  <Window.Styles>
+    <!-- While a trailer plays, everything behind it is blurred and dimmed. -->
+    <Style Selector="Grid#Shell.blurred">
+      <Setter Property="Effect">
+        <BlurEffect Radius="28" />
+      </Setter>
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+  </Window.Styles>
+
+  <!-- Everything sits in RootFade: it starts see-through and MainWindow.axaml.cs fades it in once the window is open. -->
+  <Panel x:Name="RootFade" Opacity="0">
+  <Panel.Transitions>
+    <Transitions>
+      <DoubleTransition Property="Opacity" Duration="0:0:0.9" Easing="CubicEaseOut" />
+    </Transitions>
+  </Panel.Transitions>
+  <!-- Columns: navigation | pages | friends panel (0 wide when closed; opening it widens it and the pages make room). -->
+  <Grid x:Name="Shell" ColumnDefinitions="232,*,Auto" RowDefinitions="*,Auto" Classes.blurred="{Binding IsOverlayBlurred}">
+
+    <!-- Backdrop ("The Next Generation" only): the featured game's art, blurred, behind the glass panels. -->
+    <Panel Grid.ColumnSpan="3" Grid.RowSpan="2" Classes="backdrop" IsHitTestVisible="False">
+      <Image Source="{Binding Backdrop}" Stretch="UniformToFill" Opacity="0.9">
+        <Image.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Opacity" Duration="0:0:0.4" />
+          </Transitions>
+        </Image.Transitions>
+      </Image>
+      <Border>
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#8C04090F" />
+            <GradientStop Offset="0.5" Color="#B304090F" />
+            <GradientStop Offset="1" Color="#E604090F" />
+          </LinearGradientBrush>
+        </Border.Background>
+      </Border>
+      <Border>
+        <Border.Background>
+          <RadialGradientBrush Center="70%,10%" GradientOrigin="70%,10%" RadiusX="70%" RadiusY="70%">
+            <GradientStop Offset="0" Color="#262AB8BC" />
+            <GradientStop Offset="1" Color="#0004090F" />
+          </RadialGradientBrush>
+        </Border.Background>
+      </Border>
+    </Panel>
+
+    <!-- Navigation rail ====================================================================== -->
+    <Border Grid.RowSpan="2" Classes="nav-rail">
+      <DockPanel Margin="14,0,14,16">
+
+        <!-- Brand; doubles as a window drag handle because the title bar is extended. -->
+        <Border DockPanel.Dock="Top" Height="84" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+          <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom" Margin="8,0,0,14">
+            <!-- The logo: the original line sail (in the skin's colour) for Legacy, the SeaRaider logo for The Next Generation. -->
+            <Panel Width="28" Height="28">
+              <Path Stretch="Uniform" IsVisible="{Binding IsLegacySkin}"
+                    Stroke="{DynamicResource BiolumeBrush}" StrokeThickness="2"
+                    StrokeLineCap="Round" StrokeJoin="Round"
+                    Data="M12 3v12 M12 3l7.5 10.5H12 M3 19c2.2 0 2.2-1.6 4.5-1.6S9.7 19 12 19s2.2-1.6 4.5-1.6S18.7 19 21 19" />
+              <Image Stretch="Uniform" IsVisible="{Binding !IsLegacySkin}" Source="/Assets/logo.png"
+                     RenderOptions.BitmapInterpolationMode="HighQuality" />
+            </Panel>
+            <TextBlock Classes="brand" Text="SeaRaider" FontSize="21" FontWeight="Bold" VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
+
+        <!-- Settings pinned to the bottom of the rail. -->
+        <Button DockPanel.Dock="Bottom" Classes="bare" Command="{Binding OpenSettingsCommand}" Padding="14,10">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <Path Width="20" Height="20" Stretch="Uniform" Data="{Binding SettingsItem.Icon}"
+                  Stroke="{DynamicResource MistBrush}" StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round" />
+            <TextBlock Text="Settings" FontSize="15" Foreground="{DynamicResource MistBrush}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+
+        <!-- Friends & Chat, above Settings: online count and a badge for requests / unread messages. -->
+        <Button DockPanel.Dock="Bottom" Classes="bare" Command="{Binding Friends.ToggleCommand}" Padding="14,10"
+                IsVisible="{Binding Friends.IsEnabled}" ToolTip.Tip="Friends &amp; Chat (Ctrl+Shift+F)">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Path Width="20" Height="20" Stretch="Uniform" Data="{Binding FriendsIcon}"
+                  Stroke="{DynamicResource MistBrush}" StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round" />
+            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+              <TextBlock Text="Friends" FontSize="15" Foreground="{DynamicResource MistBrush}" />
+              <TextBlock Classes="muted" FontSize="11" Text="{Binding Friends.OnlineSummary}" />
+            </StackPanel>
+            <Border Grid.Column="2" Classes="unread" VerticalAlignment="Center" IsVisible="{Binding Friends.HasBadge}">
+              <TextBlock Text="{Binding Friends.BadgeCount}" />
+            </Border>
+          </Grid>
+        </Button>
+
+        <ListBox Classes="rail" Margin="0,8,0,0"
+                 ItemsSource="{Binding NavItems}"
+                 SelectedItem="{Binding SelectedNav}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:NavItem">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <Border Classes="rail-marker" Width="3" Height="18" CornerRadius="2" Margin="-8,0,0,0"
+                        Background="{DynamicResource BiolumeBrush}" />
+                <Path Width="20" Height="20" Stretch="Uniform" Data="{Binding Icon}"
+                      Stroke="{Binding $parent[ContentPresenter].Foreground}"
+                      StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
+                <TextBlock Text="{Binding Label}" FontSize="15" VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+    </Border>
+
+    <!-- Page area ============================================================================ -->
+    <Grid Grid.Column="1" RowDefinitions="44,Auto,*">
+      <!-- Extended title bar: drag region + back. Caption buttons sit at the top right. -->
+      <Border Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+        <Button Classes="quiet" Margin="28,8,0,0" Padding="12,4" HorizontalAlignment="Left" VerticalAlignment="Center"
+                IsVisible="{Binding CanGoBack}" Command="{Binding GoBackCommand}" Content="Back" />
+      </Border>
+
+      <StackPanel Grid.Row="1" Margin="32,0,32,0" Spacing="8">
+        <Border Classes="error-banner" Margin="0,0,0,8" IsVisible="{Binding HasError}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+            <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+          </Grid>
+        </Border>
+
+        <!-- A game finished installing: try it, then its setup files can go. -->
+        <Border Classes="notice-banner" Margin="0,0,0,8" IsVisible="{Binding HasCleanupOffer}">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Path Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0"
+                  Stroke="{DynamicResource BiolumeBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                  Data="M20 6 9 17l-5-5" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+              <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding CleanupTitle}" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding CleanupText}" />
+            </StackPanel>
+            <Panel Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center">
+              <!-- Just installed: try it first -->
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CleanupShowTry}">
+                <Button Classes="quiet" Content="Keep them" Command="{Binding KeepSetupFilesCommand}"
+                        ToolTip.Tip="Keep the setup files and don't ask again" />
+                <Button Classes="quiet" Content="Delete now" Command="{Binding DeleteSetupFilesCommand}"
+                        ToolTip.Tip="Delete them without trying the game first" />
+                <Button Classes="primary" Content="Play now" Command="{Binding PlayToTryCommand}" />
+              </StackPanel>
+              <!-- Played: did it work? -->
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CleanupShowWorked}">
+                <Button Classes="quiet" Content="Not yet" Command="{Binding AskLaterCommand}"
+                        ToolTip.Tip="Ask again next time the game is closed" />
+                <Button Classes="quiet" Content="Keep them" Command="{Binding KeepSetupFilesCommand}" />
+                <Button Classes="primary" Content="It works, delete them" Command="{Binding DeleteSetupFilesCommand}" />
+              </StackPanel>
+              <!-- Deleting failed -->
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding CleanupFailed}">
+                <Button Classes="quiet" Content="Later" Command="{Binding AskLaterCommand}" />
+                <Button Classes="quiet" Content="Open folder" Command="{Binding OpenSetupFolderCommand}" />
+                <Button Classes="primary" Content="Try again" Command="{Binding DeleteSetupFilesCommand}" />
+              </StackPanel>
+            </Panel>
+          </Grid>
+        </Border>
+
+        <!-- A new SeaRaider version is out -->
+        <Border Classes="notice-banner" Margin="0,0,0,8" DataContext="{Binding Updates}" x:DataType="vm:UpdateViewModel"
+                IsVisible="{Binding HasUpdate}">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Path Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0"
+                  Stroke="{DynamicResource BiolumeBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                  Data="M12 3v12m0 0-5-5m5 5 5-5M5 21h14" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+              <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding UpdateTitle}" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap" MaxHeight="60" IsVisible="{Binding HasNotes}" Text="{Binding UpdateNotes}" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap" IsVisible="{Binding IsInstalling}" Text="{Binding StatusText}" />
+              <ProgressBar Classes="thin" Margin="0,4,0,0" IsVisible="{Binding IsInstalling}" Value="{Binding InstallProgress}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0" VerticalAlignment="Center"
+                        IsEnabled="{Binding !IsInstalling}">
+              <Button Classes="quiet" Content="Skip this version" Command="{Binding SkipCommand}" />
+              <Button Classes="quiet" Content="Later" Command="{Binding LaterCommand}" />
+              <Button Classes="primary" Content="Update and restart" Command="{Binding InstallCommand}" IsVisible="{Binding CanInstall}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- Just restarted after an update -->
+        <Border Classes="notice-banner" Margin="0,0,0,8" DataContext="{Binding Updates}" x:DataType="vm:UpdateViewModel"
+                IsVisible="{Binding JustUpdated}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding StatusText}" />
+            <Button Grid.Column="1" Classes="link" Content="OK" Command="{Binding DismissUpdatedCommand}" />
+          </Grid>
+        </Border>
+
+        <!-- A wishlisted game showed up in the store -->
+        <Border Classes="notice-banner" Margin="0,0,0,8" IsVisible="{Binding HasWishlistNotice}">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Border Width="92" Height="43" CornerRadius="6" ClipToBounds="True" Margin="0,0,14,0" VerticalAlignment="Center"
+                    Background="{DynamicResource CoverPlaceholderBrush}">
+              <Panel>
+                <Path Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource CoralBrush}" Data="M12 20.5s-7.5-4.6-9.2-9.3C1.6 7.8 3.9 4.5 7.3 4.5c2 0 3.6 1.1 4.7 2.8 1.1-1.7 2.7-2.8 4.7-2.8 3.4 0 5.7 3.3 4.5 6.7-1.7 4.7-9.2 9.3-9.2 9.3Z" />
+                <Image Stretch="UniformToFill" img:ImageLoader.Source="{Binding WishlistNoticeImage}" />
+              </Panel>
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+              <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding WishlistNoticeTitle}" />
+              <TextBlock Classes="muted small" Text="It's ready to download now." />
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0" VerticalAlignment="Center">
+              <Button Classes="quiet" Content="Later" Command="{Binding DismissWishlistNoticeCommand}" />
+              <Button Classes="primary" Content="View in store" Command="{Binding ViewWishlistGameCommand}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- A site asked for a human check: the verification window is open; downloads continue once it's done. -->
+        <Border Classes="verify-banner" Margin="0,0,0,8" IsVisible="{Binding HasVerificationPrompt}">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Path Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,12,0"
+                  Stroke="{DynamicResource BrassBrush}" StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                  Data="M12 3 4 6v6c0 4.4 3.4 8.4 8 9 4.6-.6 8-4.6 8-9V6l-8-3Zm-3 9 2 2 4-4" />
+            <TextBlock Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding VerificationText}" />
+            <Button Grid.Column="2" Classes="quiet" Margin="12,0,0,0" Content="Show window"
+                    Command="{Binding ShowVerificationWindowCommand}" />
+          </Grid>
+        </Border>
+      </StackPanel>
+
+      <TransitioningContentControl Grid.Row="2" Content="{Binding CurrentPage}">
+        <TransitioningContentControl.PageTransition>
+          <CrossFade Duration="0:0:0.12" />
+        </TransitioningContentControl.PageTransition>
+      </TransitioningContentControl>
+    </Grid>
+
+    <!-- Friends & Chat: its own column at the right. Opening it grows the column smoothly, so the pages (and the download
+         bar) slide left to make room instead of being covered; the panel's content rides in with its left edge. ======== -->
+    <Border Grid.Column="2" Grid.RowSpan="2" Classes="friends-host" Classes.open="{Binding Friends.IsOpen}"
+            IsVisible="{Binding Friends.IsEnabled}" ClipToBounds="True" HorizontalAlignment="Left" ZIndex="5">
+      <views:FriendsListOverlay DataContext="{Binding Friends}" Width="360" HorizontalAlignment="Left" />
+    </Border>
+
+    <!-- New message toast (while the friends panel is closed) -->
+    <Button Grid.Column="1" Classes="toast" ZIndex="6" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,24"
+            IsVisible="{Binding Friends.HasToast}" Command="{Binding Friends.OpenToastCommand}">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Path Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" Stroke="{DynamicResource BiolumeBrush}"
+              StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+              Data="M4 5h16v11H9l-5 4V5Z" />
+        <TextBlock Text="{Binding Friends.Toast}" TextWrapping="Wrap" MaxWidth="300" VerticalAlignment="Center" />
+      </StackPanel>
+    </Button>
+
+    <!-- Download status bar (visible while anything is queued, downloading or extracting) ======= -->
+    <Border Grid.Row="1" Grid.Column="1" Classes="status-bar" IsVisible="{Binding HasActiveDownloads}">
+      <DockPanel>
+        <ProgressBar DockPanel.Dock="Top" Classes="thin" CornerRadius="0"
+                     Value="{Binding DownloadBarPercent}" IsIndeterminate="{Binding DownloadBarIndeterminate}" />
+        <Grid ColumnDefinitions="*,Auto" Margin="32,10,32,12">
+          <StackPanel Spacing="2">
+            <TextBlock Text="{Binding DownloadBarTitle}" FontWeight="SemiBold" />
+            <TextBlock Classes="muted small" Text="{Binding DownloadBarDetail}" />
+          </StackPanel>
+          <Button Grid.Column="1" Classes="link" Content="Open downloads" VerticalAlignment="Center"
+                  Command="{Binding OpenDownloadsCommand}" />
+        </Grid>
+      </DockPanel>
+    </Border>
+
+    <!-- Modal dialog overlay (pre-download options…) ======================================== -->
+    <Panel Grid.ColumnSpan="3" Grid.RowSpan="2" ZIndex="10"
+           IsVisible="{Binding Dialogs.Current, Converter={x:Static ObjectConverters.IsNotNull}}">
+      <Border Background="#C2030A12" />
+      <Border Classes="panel dialog" Padding="0" Width="640" MaxHeight="780" Margin="24"
+              HorizontalAlignment="Center" VerticalAlignment="Center" ClipToBounds="True">
+        <ContentControl Content="{Binding Dialogs.Current}" />
+      </Border>
+    </Panel>
+  </Grid>
+
+  <!-- Coming-soon page: pops out over the blurred window. Click outside, the ×, or Esc closes it. -->
+  <Panel x:Name="UpcomingOverlay" IsVisible="{Binding Upcoming.IsPopoutOpen}" Background="#B302070D"
+         PointerPressed="OnUpcomingBackdropPressed">
+    <Grid MaxWidth="1040" Margin="48,56,48,40" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <!-- DataContext is bound here (window's type); everything inside is typed as the selected game. -->
+      <Border Classes="popout" DataContext="{Binding Upcoming.Selected}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" x:DataType="vm:UpcomingCardViewModel">
+          <StackPanel>
+            <!-- Hero: the big picture with the title over it -->
+            <views:AspectRatioBox Ratio="2.4">
+              <Grid>
+                <Border Background="{DynamicResource CoverPlaceholderBrush}" />
+                <views:FitImage Url="{Binding HeroImageUrl}" />
+                <Border>
+                  <Border.Background>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                      <GradientStop Offset="0.35" Color="#00000000" />
+                      <GradientStop Offset="1" Color="#F20F2131" />
+                    </LinearGradientBrush>
+                  </Border.Background>
+                </Border>
+                <StackPanel VerticalAlignment="Bottom" Margin="34,0,34,22" Spacing="8">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Border Classes="chip accent"><TextBlock Text="COMING SOON" /></Border>
+                    <Border Classes="chip" Background="#CC071420"><TextBlock Text="{Binding ReleaseText}" /></Border>
+                  </StackPanel>
+                  <TextBlock Classes="display" FontSize="42" LineHeight="48" Text="{Binding Title}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Grid>
+            </views:AspectRatioBox>
+
+            <Grid ColumnDefinitions="*,28,300" Margin="34,10,34,34">
+              <!-- About -->
+              <StackPanel Spacing="14">
+                <TextBlock Classes="h2" Text="About this game" />
+                <TextBlock Classes="body" FontSize="14" LineHeight="23" TextWrapping="Wrap" Foreground="{DynamicResource FoamBrush}"
+                           IsVisible="{Binding HasDescription}" Text="{Binding Description}" />
+                <TextBlock Classes="muted" TextWrapping="Wrap" IsVisible="{Binding !HasDescription}"
+                           Text="The site hasn't said much about this one yet. Wishlist it and SeaRaider will tell you when it can be downloaded." />
+                <ItemsControl ItemsSource="{Binding Tags}" IsVisible="{Binding HasTags}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="sys:String">
+                      <Border Classes="chip" Margin="0,0,6,6"><TextBlock Text="{Binding}" /></Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <!-- Facts and the wishlist button -->
+              <StackPanel Grid.Column="2" Spacing="16">
+                <Border Classes="pill" HorizontalAlignment="Stretch">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="pill-label" Text="Release" />
+                    <TextBlock Classes="pill-value" Text="{Binding ReleaseText}" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+                <Border Classes="pill" HorizontalAlignment="Stretch" IsVisible="{Binding HasDeveloper}">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="pill-label" Text="Developer" />
+                    <TextBlock Classes="pill-value" Text="{Binding Developer}" TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="glow">
+                  <Button Classes="primary wish-big" Classes.on="{Binding IsWishlisted}" Command="{Binding ToggleWishlistCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <Path Data="M12 20.5s-7.5-4.6-9.2-9.3C1.6 7.8 3.9 4.5 7.3 4.5c2 0 3.6 1.1 4.7 2.8 1.1-1.7 2.7-2.8 4.7-2.8 3.4 0 5.7 3.3 4.5 6.7-1.7 4.7-9.2 9.3-9.2 9.3Z" VerticalAlignment="Center" />
+                      <TextBlock VerticalAlignment="Center" Text="{Binding WishlistLabel}" />
+                    </StackPanel>
+                  </Button>
+                </Border>
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="You'll get a notice when it shows up in your store, ready to download." />
+                <StackPanel Spacing="6">
+                  <Button Classes="link" HorizontalAlignment="Left" Content="Open the game's page" IsVisible="{Binding HasPage}"
+                          Command="{Binding OpenPageCommand}" />
+                  <Button Classes="link" HorizontalAlignment="Left" Content="See your wishlist" Command="{Binding OpenWishlistCommand}" />
+                  <TextBlock Classes="muted small" Text="{Binding SourceText}" />
+                </StackPanel>
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+      <Button Classes="popout-close" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="14"
+              Command="{Binding Upcoming.ClosePopoutCommand}" ToolTip.Tip="Close (Esc)">
+        <Path Data="M6 6 18 18 M18 6 6 18" />
+      </Button>
+    </Grid>
+  </Panel>
+
+  <!-- Trailer player overlay: the video in the window, over the blurred app. Click outside or press Esc to close. -->
+  <Panel x:Name="TrailerOverlay" IsVisible="{Binding Trailer.IsOpen}" Background="#A602070D"
+         PointerPressed="OnTrailerBackdropPressed">
+    <views:AspectRatioBox x:Name="TrailerFrame" Ratio="1.7777778" ExtraHeight="52" MaxWidth="1600"
+                          Margin="56,56,56,40" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <DockPanel>
+        <Grid DockPanel.Dock="Top" Height="52" ColumnDefinitions="*,Auto,Auto,Auto" Background="Transparent">
+          <TextBlock Classes="h2" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                     Text="{Binding Trailer.Current.Title, FallbackValue=''}" />
+          <!-- Watch along: whose player this follows -->
+          <Border Grid.Column="1" Classes="follow-banner" Margin="12,0,0,0" VerticalAlignment="Center"
+                  IsVisible="{Binding WatchTogether.IsFollowing}">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding WatchTogether.FollowText}" />
+              <Button Classes="link" FontSize="12" Padding="0" VerticalAlignment="Center" Content="Stop"
+                      Command="{Binding WatchTogether.StopFollowingCommand}" ToolTip.Tip="Keep watching on your own" />
+            </StackPanel>
+          </Border>
+          <!-- Invite friends to watch this with you -->
+          <Button Grid.Column="2" Classes="quiet" VerticalAlignment="Center" Padding="14,6" Margin="12,0,0,0"
+                  IsVisible="{Binding Friends.IsEnabled}" ToolTip.Tip="Invite a friend to watch this with you">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Path Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Stroke="{DynamicResource FoamBrush}"
+                    StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                    Data="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 10v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1M19 8v6M16 11h6" />
+              <TextBlock Text="Invite" VerticalAlignment="Center" />
+            </StackPanel>
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <StackPanel Width="280" Spacing="8">
+                  <TextBlock FontWeight="SemiBold" Text="Watch this with a friend" />
+                  <TextBlock Classes="muted small" TextWrapping="Wrap"
+                             Text="They get an invite in chat; Watch along opens it where you are and keeps their player with yours." />
+                  <TextBlock Classes="muted small" TextWrapping="Wrap" IsVisible="{Binding WatchTogether.HasNoInviteTargets}"
+                             Text="No friends yet. Add someone with their friend code in the Friends panel (Ctrl+Shift+F)." />
+                  <ItemsControl ItemsSource="{Binding WatchTogether.InviteTargets}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="services:WatchInviteTargetViewModel">
+                        <Button Classes="mirror-option" Margin="0,0,0,4" Command="{Binding InviteCommand}">
+                          <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,10,0"
+                                     Fill="{DynamicResource BiolumeBrush}" IsVisible="{Binding IsOnline}" />
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,10,0"
+                                     Fill="{DynamicResource LineBrush}" IsVisible="{Binding !IsOnline}" />
+                            <StackPanel Grid.Column="1" Spacing="1">
+                              <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Classes="muted small" Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" Classes="small" VerticalAlignment="Center" Margin="10,0,0,0"
+                                       Foreground="{DynamicResource BiolumeBrush}" Text="Invite" />
+                          </Grid>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Classes="brass small" TextWrapping="Wrap" IsVisible="{Binding WatchTogether.HasInviteStatus}"
+                             Text="{Binding WatchTogether.InviteStatus}" />
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <Button Grid.Column="3" Classes="quiet" VerticalAlignment="Center" Padding="14,6"
+                  Command="{Binding Trailer.CloseCommand}" ToolTip.Tip="Close (Esc)">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Path Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                    Stroke="{DynamicResource FoamBrush}" StrokeThickness="2" StrokeLineCap="Round"
+                    Data="M6 6 18 18 M18 6 6 18" />
+              <TextBlock Text="Close" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </Grid>
+        <!-- The player (a native browser window) is put here from code-behind for each trailer. -->
+        <Border x:Name="TrailerSlot" Background="Black" CornerRadius="8" ClipToBounds="True"
+                BoxShadow="0 24 80 0 #CC000000" />
+      </DockPanel>
+    </views:AspectRatioBox>
+  </Panel>
+  </Panel>
+</Window>

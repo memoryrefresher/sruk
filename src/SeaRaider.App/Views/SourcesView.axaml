@@ -1,0 +1,435 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:sys="using:System"
+             xmlns:views="using:SeaRaider.App.Views"
+             x:Class="SeaRaider.App.Views.SourcesView"
+             x:DataType="vm:SourcesViewModel">
+
+  <!-- Hosted by Settings › Sources: the Settings page supplies the scrolling, the title and the margins. -->
+  <StackPanel Spacing="22">
+
+      <StackPanel Spacing="6">
+        <TextBlock Classes="body muted"
+                   Text="Paste the address of a game site, a page that lists games, or an RSS/Atom feed. The Store searches it live as you type and shows its newest uploads. Building a full offline index is optional." />
+        <!-- The sources file (sources.txt) and import / export -->
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+          <Button Classes="quiet" Content="Import sources…" Command="{Binding ImportSourcesCommand}"
+                  ToolTip.Tip="Add every address from a sources file (one per line)" />
+          <Button Classes="quiet" Content="Export sources…" Command="{Binding ExportSourcesCommand}"
+                  ToolTip.Tip="Save all your sources and upcoming sites to a text file" />
+          <Button Classes="link" VerticalAlignment="Center" Content="Show sources.txt" Command="{Binding ShowSourcesFileCommand}" />
+        </StackPanel>
+        <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding SourcesFileText}" />
+      </StackPanel>
+
+      <Border Classes="error-banner" IsVisible="{Binding HasError}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+          <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+        </Grid>
+      </Border>
+
+      <!-- Add source -->
+      <Border Classes="panel" Padding="22">
+        <StackPanel Spacing="14">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Text="{Binding NewUrl}" Watermark="https://example.com" FontSize="15" />
+            <Border Grid.Column="1" Classes="glow" Margin="12,0,0,0">
+              <Button Classes="primary" Content="Add source" Command="{Binding AddSourceCommand}" IsDefault="True" />
+            </Border>
+          </Grid>
+
+          <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto">
+            <TextBlock Classes="small" VerticalAlignment="Center" Text="Search with" />
+            <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                      ItemsSource="{x:Static vm:SourcesViewModel.SearchModes}" SelectedItem="{Binding SelectedSearchMode}" />
+            <TextBox Grid.Row="1" Grid.Column="1" Margin="0,8,0,0" IsVisible="{Binding IsCustomSearch}"
+                     Text="{Binding SearchUrlTemplate}" Watermark="https://example.com/search/{query}/page/{page}" />
+            <TextBlock Grid.Row="2" Classes="small" Margin="0,8,0,0" VerticalAlignment="Center" Text="Offline index" />
+            <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                      ItemsSource="{x:Static vm:SourcesViewModel.CrawlModes}" SelectedItem="{Binding SelectedCrawlMode}" />
+          </Grid>
+
+          <CheckBox IsChecked="{Binding IsWebGame}"
+                    Content="It's a game you play in the browser (adds that game; Play opens it full screen in SeaRaider)" />
+          <CheckBox IsChecked="{Binding ShowAdvanced}" Content="Show crawl filters and site-specific selectors" />
+          <StackPanel Spacing="12" IsVisible="{Binding ShowAdvanced}">
+            <TextBlock Classes="muted small" TextWrapping="Wrap"
+                       Text="Most sites work with the defaults. Filters are regular expressions matched against each page address; selectors are CSS selectors. Leave anything blank to keep auto-detection." />
+            <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Classes="small" VerticalAlignment="Center" Text="Only pages matching" />
+              <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" Text="{Binding UrlIncludePattern}" Watermark="/games/" />
+              <TextBlock Grid.Row="1" Classes="small" VerticalAlignment="Center" Text="Skip pages matching" />
+              <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8" Text="{Binding UrlExcludePattern}" Watermark="/news/|/guides/" />
+              <TextBlock Grid.Row="2" Classes="small" VerticalAlignment="Center" Text="Pause between requests (ms)" />
+              <NumericUpDown Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" Width="160" HorizontalAlignment="Left"
+                             Value="{Binding RequestDelayMs}" Minimum="0" Maximum="60000" Increment="250" FormatString="0" />
+              <TextBlock Grid.Row="3" Classes="small" VerticalAlignment="Center" Text="Most listing pages to walk" />
+              <NumericUpDown Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" Width="160" HorizontalAlignment="Left"
+                             Value="{Binding MaxPages}" Minimum="1" Maximum="100000" Increment="50" FormatString="0" />
+              <CheckBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,12" IsChecked="{Binding RespectRobotsTxt}"
+                        Content="Follow the site's robots.txt rules" />
+
+              <TextBlock Grid.Row="5" Classes="small" VerticalAlignment="Center" Text="Links to game pages" />
+              <TextBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,8" Text="{Binding ItemLinkSelector}" Watermark="article h2 a" />
+              <TextBlock Grid.Row="6" Classes="small" VerticalAlignment="Center" Text="Next page link" />
+              <TextBox Grid.Row="6" Grid.Column="1" Margin="0,0,0,8" Text="{Binding NextPageSelector}" Watermark="a.next" />
+              <TextBlock Grid.Row="7" Classes="small" VerticalAlignment="Center" Text="Download links" />
+              <TextBox Grid.Row="7" Grid.Column="1" Margin="0,0,0,8" Text="{Binding DownloadLinkSelector}" Watermark=".downloads a" />
+              <TextBlock Grid.Row="8" Classes="small" VerticalAlignment="Center" Text="Title" />
+              <TextBox Grid.Row="8" Grid.Column="1" Margin="0,0,0,8" Text="{Binding TitleSelector}" Watermark="h1.game-title" />
+              <TextBlock Grid.Row="9" Classes="small" VerticalAlignment="Center" Text="Description" />
+              <TextBox Grid.Row="9" Grid.Column="1" Margin="0,0,0,8" Text="{Binding DescriptionSelector}" Watermark=".description" />
+              <TextBlock Grid.Row="10" Classes="small" VerticalAlignment="Center" Text="Cover image" />
+              <TextBox Grid.Row="10" Grid.Column="1" Margin="0,0,0,8" Text="{Binding CoverSelector}" Watermark="img.cover" />
+              <TextBlock Grid.Row="11" Classes="small" VerticalAlignment="Center" Text="Mirror labels" />
+              <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding MirrorLabels}" Watermark="Torrent, Gofile, Pixeldrain, 1fichier"
+                       ToolTip.Tip="The names the site prints next to its &quot;Click Here&quot; buttons. Names with torrent or magnet are torrents." />
+            </Grid>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <!-- Saved sources -->
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="h2" VerticalAlignment="Center" Text="Your sources" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+          <Button Classes="quiet" Content="Update all offline indexes" Command="{Binding RefreshAllCommand}" />
+          <Button Classes="quiet" Content="Browse store" Command="{Binding BrowseStoreCommand}" />
+        </StackPanel>
+      </Grid>
+
+      <TextBlock Classes="muted" IsVisible="{Binding IsEmpty}" Text="No sources yet. Add one above to fill your store." />
+
+      <ItemsControl ItemsSource="{Binding Sources}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SourceItemViewModel">
+            <Border Classes="panel" Padding="18,14" Margin="0,0,0,10">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="3">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <ToggleSwitch IsChecked="{Binding IsEnabled}" OnContent="" OffContent="" VerticalAlignment="Center"
+                                    ToolTip.Tip="On: searched and shown in the store. Off: left out until you switch it on again." />
+                      <TextBlock FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" Text="{Binding Name}" />
+                    </StackPanel>
+                    <TextBlock Classes="muted small" Text="{Binding Url}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="small" Text="{Binding StatusText}" TextWrapping="Wrap"
+                               Classes.coral="{Binding !IsHealthy}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsCrawling}">
+                      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsWebGame}">
+                      <Button Classes="quiet" Content="Build offline index" ToolTip.Tip="Crawl the whole site so every game is searchable offline"
+                              Command="{Binding RefreshCommand}" />
+                      <Button Classes="quiet" Content="Rebuild" ToolTip.Tip="Re-read every page, including ones already indexed"
+                              Command="{Binding FullRescanCommand}" />
+                      </StackPanel>
+                    </StackPanel>
+                    <CheckBox IsChecked="{Binding IsWebGame}" Content="Browser game" VerticalAlignment="Center"
+                              ToolTip.Tip="The address is a game you play in the browser: one store entry, played full screen in SeaRaider" />
+                    <Button Classes="quiet" Content="Mirror labels" ToolTip.Tip="Name the mirrors next to this site's &quot;Click Here&quot; buttons"
+                            Command="{Binding EditLabelsCommand}" />
+                    <Button Classes="quiet" Content="Stop" IsVisible="{Binding IsCrawling}" Command="{Binding StopCommand}" />
+                    <Button Classes="danger" Content="Remove" Command="{Binding RemoveCommand}" />
+                  </StackPanel>
+                </Grid>
+
+                <!-- Mirror labels: the names next to the site's "Click Here" buttons -->
+                <StackPanel Spacing="6" IsVisible="{Binding IsEditingLabels}">
+                  <TextBlock Classes="muted small" TextWrapping="Wrap"
+                             Text="Type the names this site prints next to its &quot;Click Here&quot; buttons, separated by commas. Each button becomes its own mirror under that name; names with torrent or magnet are downloaded as torrents. Leave it empty to use whatever text is next to each button." />
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Text="{Binding MirrorLabels}" Watermark="Torrent, Gofile, Pixeldrain, 1fichier, Mega, Direct" />
+                    <Button Grid.Column="1" Classes="primary" Margin="10,0,0,0" Content="Save" Command="{Binding SaveLabelsCommand}" />
+                  </Grid>
+                </StackPanel>
+
+                <!-- Live crawl progress -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsCrawling}">
+                  <ProgressBar Value="{Binding ProgressPercent}" IsIndeterminate="{Binding IsProgressIndeterminate}" />
+                  <TextBlock Classes="small" Text="{Binding ProgressText}" />
+                  <TextBlock Classes="muted small" Text="{Binding ProgressDetail}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Upcoming sites: feed the store's "Coming soon" shelf -->
+      <StackPanel Spacing="10">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="h2" Text="Upcoming releases" />
+          <TextBlock Classes="body muted" TextWrapping="Wrap"
+                     Text="Pages that list upcoming freeware or games (demos are left out): an itch.io or Steam &quot;coming soon&quot; list, a site's upcoming page, or an RSS feed (or, with Custom list, any page that is just a list of game names). Their games show in the Store under Coming soon, with pictures found on the web; wishlist one to be told when it can be downloaded." />
+        </StackPanel>
+        <Border Classes="panel" Padding="22">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding Upcoming.NewSourceUrl}" Watermark="https://itch.io/games/upcoming" FontSize="15" />
+              <Button Grid.Column="1" Classes="primary" Margin="12,0,0,0" Content="Add upcoming site"
+                      Command="{Binding Upcoming.AddSourceCommand}" IsEnabled="{Binding !Upcoming.IsAdding}" />
+            </Grid>
+            <!-- Custom list: a page that is just a list of game names (a /feed page, a blog post …) -->
+            <CheckBox IsChecked="{Binding Upcoming.NewIsCustom}"
+                      Content="Custom list: only read the part of the page between two bits of HTML" />
+            <StackPanel Spacing="10" IsVisible="{Binding Upcoming.NewIsCustom}">
+              <TextBlock Classes="muted small" TextWrapping="Wrap"
+                         Text="For a page or feed that is just a list of game names. Easiest: paste the page's address above, type the name of one game that is listed there right now, and press Find it. SeaRaider works out where the list starts and ends and shows you the games it would read; say Yes if that's right and it keeps reading the page by itself. Pictures, descriptions and details come from Steam." />
+
+              <!-- 1. Teach by example -->
+              <TextBlock Classes="small" Text="A game that is on the page right now" />
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBox Text="{Binding Upcoming.SampleGame}" Watermark="Exactly as the page spells it, e.g. Hollow Depths" FontSize="14" />
+                <Button Grid.Column="1" Classes="primary" Margin="12,0,0,0" Content="Find it"
+                        Command="{Binding Upcoming.FindListCommand}" IsEnabled="{Binding !Upcoming.IsFinding}" />
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Upcoming.IsFinding}">
+                <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" />
+                <TextBlock Classes="muted small" Text="Looking for it on the page…" />
+              </StackPanel>
+
+              <!-- 2. Is this right? -->
+              <Border Classes="panel" Padding="16" IsVisible="{Binding Upcoming.HasProposal}">
+                <StackPanel Spacing="10">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Upcoming.ProposalTitle}" />
+                  <TextBlock Classes="muted small" Text="Is this the list of games? Check the names below." />
+                  <ItemsControl ItemsSource="{Binding Upcoming.ProposalNames}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="sys:String">
+                        <TextBlock Text="{Binding}" Margin="0,1" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Classes="muted small" Text="{Binding Upcoming.ProposalHint}" IsVisible="{Binding Upcoming.ProposalHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                  <TextBlock Classes="muted small" Text="Starts after:" />
+                  <TextBlock Classes="small" FontFamily="Consolas, Menlo, monospace" TextWrapping="Wrap" Text="{Binding Upcoming.ProposalStart}" />
+                  <TextBlock Classes="muted small" Text="Stops at:" />
+                  <TextBlock Classes="small" FontFamily="Consolas, Menlo, monospace" TextWrapping="Wrap" Text="{Binding Upcoming.ProposalEnd}" />
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <Button Classes="primary" Content="Yes, that's right" Command="{Binding Upcoming.AcceptProposalCommand}"
+                            IsEnabled="{Binding !Upcoming.IsAdding}" />
+                    <Button Classes="quiet" Content="No, try another guess" Command="{Binding Upcoming.RejectProposalCommand}"
+                            IsEnabled="{Binding !Upcoming.IsAdding}" />
+                    <Button Classes="link" Content="Let me adjust it" Command="{Binding Upcoming.TweakProposalCommand}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <!-- Or by hand -->
+              <TextBlock Classes="muted small" Text="Or paste the HTML yourself (copy it from the page's source), then press Add upcoming site above:" Margin="0,6,0,0" />
+              <TextBlock Classes="small" Text="Start reading after this HTML" />
+              <TextBox Text="{Binding Upcoming.NewStartHtml}" AcceptsReturn="True" TextWrapping="Wrap" Height="72"
+                       FontFamily="Consolas, Menlo, monospace" FontSize="12" Watermark="&lt;title&gt;Upcoming" />
+              <TextBlock Classes="small" Text="Stop reading at this HTML (leave empty to read to the end of the page)" />
+              <TextBox Text="{Binding Upcoming.NewEndHtml}" AcceptsReturn="True" TextWrapping="Wrap" Height="72"
+                       FontFamily="Consolas, Menlo, monospace" FontSize="12" Watermark="&lt;p&gt;The post &lt;a" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Upcoming.IsAdding}">
+              <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" />
+              <TextBlock Classes="muted small" Text="Reading the page…" />
+            </StackPanel>
+            <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding Upcoming.HasError}" Text="{Binding Upcoming.ErrorMessage}" />
+            <TextBlock Classes="brass small" TextWrapping="Wrap" IsVisible="{Binding Upcoming.HasFindNote}" Text="{Binding Upcoming.FindNote}" />
+            <TextBlock Classes="muted small" IsVisible="{Binding !Upcoming.HasSources}" Text="No upcoming sites yet." />
+
+            <ItemsControl ItemsSource="{Binding Upcoming.Sources}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:UpcomingSourceRow">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,6">
+                    <StackPanel Spacing="2">
+                      <StackPanel Orientation="Horizontal" Spacing="10">
+                        <ToggleSwitch IsChecked="{Binding IsEnabled}" OnContent="" OffContent="" VerticalAlignment="Center"
+                                      ToolTip.Tip="On: its games show under Coming soon. Off: left out until you switch it on again." />
+                        <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding Name}" />
+                      </StackPanel>
+                      <TextBlock Classes="muted small" Text="{Binding Url}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="small" Text="{Binding StatusText}" />
+                      <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding HasError}" Text="{Binding Error}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="danger" VerticalAlignment="Center" Content="Remove" Command="{Binding RemoveCommand}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Button Classes="link" HorizontalAlignment="Left" Content="Read them all again now"
+                    IsVisible="{Binding Upcoming.HasSources}" Command="{Binding Upcoming.RefreshCommand}" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- Site readers: teach SeaRaider a site's layout -->
+      <StackPanel Spacing="10" DataContext="{Binding SiteReaders}" x:DataType="vm:SiteReadersViewModel">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="h2" Text="Site readers" />
+            <TextBlock Classes="muted small" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left"
+                       Text="A reader tells SeaRaider exactly where a site keeps its games: the list, the title, pictures, description and download buttons. It's a small file of CSS selectors; sites with one pull into the store like itch.io does." />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Top">
+            <Button Classes="quiet" Content="Reload" Command="{Binding ReloadCommand}" ToolTip.Tip="Read the reader files again" />
+            <Button Classes="quiet" Content="Open readers folder" Command="{Binding OpenFolderCommand}" />
+          </StackPanel>
+        </Grid>
+
+        <Border Classes="error-banner" IsVisible="{Binding HasError}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+            <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+          </Grid>
+        </Border>
+
+        <Border Classes="panel" Padding="16">
+          <StackPanel Spacing="12">
+            <!-- The readers -->
+            <TextBlock Classes="muted small" IsVisible="{Binding HasNoReaders}"
+                       Text="No readers yet. Start one below for a site whose games don't pull in well." />
+            <ItemsControl ItemsSource="{Binding Readers}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SiteReaderRowViewModel">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                    <StackPanel Spacing="1">
+                      <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
+                      <TextBlock Classes="muted small" Text="{Binding Domains}" />
+                      <TextBlock Classes="muted small" Text="{Binding Covers}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="link" FontSize="12" VerticalAlignment="Center" Content="{Binding FileName}"
+                            Command="{Binding EditCommand}" ToolTip.Tip="Open the file to edit it" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding HasProblems}" Text="{Binding Problems}" />
+
+            <!-- New reader -->
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding NewDomain}" Watermark="Site for a new reader: example.com" />
+              <Button Grid.Column="1" Classes="quiet" Margin="10,0,0,0" Content="New reader" Command="{Binding NewReaderCommand}"
+                      ToolTip.Tip="Creates the file with every field explained and opens it" />
+            </Grid>
+
+            <!-- Teach from a page -->
+            <StackPanel Spacing="8">
+              <TextBlock FontWeight="SemiBold" Text="Teach it from a page" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap"
+                         Text="Open a game's page in your browser, press Ctrl+U (View source), Select all, Copy, and paste it below. SeaRaider works out where the title, cover, description, screenshots, details and download buttons are, shows what each one reads, and saves the reader. Paste the site's list of games too to teach it the list." />
+              <TextBox Text="{Binding LearnAddress}" Watermark="The page's address (only needed if the page doesn't say): https://example.com/some-game/" />
+              <TextBox Text="{Binding LearnHtml}" AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="90" MaxHeight="160"
+                       Watermark="Paste the page's HTML here" />
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="primary" Content="Learn from this page" Command="{Binding LearnCommand}" IsEnabled="{Binding !IsLearning}" />
+                <Button Classes="quiet" Content="Clear" Command="{Binding ClearLearnCommand}" />
+                <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" IsVisible="{Binding IsLearning}" />
+              </StackPanel>
+              <Border Classes="panel" Background="{DynamicResource DeckBrush}" Padding="16" IsVisible="{Binding HasLesson}">
+                <StackPanel Spacing="8" DataContext="{Binding Lesson}" x:DataType="vm:SiteReaderLessonViewModel">
+                  <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Summary}" />
+                  <ItemsControl ItemsSource="{Binding Lines}" IsVisible="{Binding HasLines}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="sys:String">
+                        <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <StackPanel Spacing="2" IsVisible="{Binding HasNotes}">
+                    <TextBlock FontWeight="SemiBold" Classes="small" Text="Worth a look" />
+                    <ItemsControl ItemsSource="{Binding Notes}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="sys:String">
+                          <TextBlock Classes="brass small" TextWrapping="Wrap" Text="{Binding}" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+
+            <!-- Test -->
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox Text="{Binding TestUrl}" Watermark="Test on a page: paste a game's page or the site's list of games" />
+              <Button Grid.Column="1" Classes="primary" Margin="10,0,0,0" Content="Test" Command="{Binding TestCommand}"
+                      IsEnabled="{Binding !IsTesting}" />
+            </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsTesting}">
+              <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" />
+              <TextBlock Classes="muted small" Text="Reading the page…" />
+            </StackPanel>
+
+            <!-- What the test found -->
+            <Border Classes="panel" Background="{DynamicResource DeckBrush}" Padding="16" IsVisible="{Binding HasTestResult}">
+              <StackPanel Spacing="10" DataContext="{Binding TestResult}" x:DataType="vm:SiteReaderTestViewModel">
+                <TextBlock Classes="muted small" Text="{Binding Reader, StringFormat='Reader: {0}'}" />
+                <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding HasGame}">
+                  <Border Width="180" Height="101" CornerRadius="6" ClipToBounds="True" Margin="0,0,14,0" VerticalAlignment="Top"
+                          Background="{DynamicResource CoverPlaceholderBrush}">
+                    <views:FitImage Url="{Binding CoverUrl}" IsVisible="{Binding HasCover}" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="3">
+                    <TextBlock FontWeight="SemiBold" FontSize="16" TextWrapping="Wrap" Text="{Binding Title}" />
+                    <ItemsControl ItemsSource="{Binding Facts}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="sys:String">
+                          <TextBlock Classes="muted small" Text="{Binding}" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </Grid>
+                <TextBlock Classes="small" TextWrapping="Wrap" MaxLines="8" Text="{Binding Description}" IsVisible="{Binding HasGame}" />
+                <StackPanel Spacing="2" IsVisible="{Binding HasDownloads}">
+                  <TextBlock FontWeight="SemiBold" Classes="small" Text="Download options" />
+                  <ItemsControl ItemsSource="{Binding Downloads}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="sys:String">
+                        <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis" Text="{Binding}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+                <StackPanel Spacing="2" IsVisible="{Binding HasListed}">
+                  <TextBlock FontWeight="SemiBold" Classes="small" Text="{Binding ListedText}" />
+                  <ItemsControl ItemsSource="{Binding Listed}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="sys:String">
+                        <TextBlock Classes="muted small" Text="{Binding}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+                <StackPanel Spacing="2" IsVisible="{Binding HasNotes}">
+                  <TextBlock FontWeight="SemiBold" Classes="small" Text="Worth a look" />
+                  <ItemsControl ItemsSource="{Binding Notes}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="sys:String">
+                        <TextBlock Classes="brass small" TextWrapping="Wrap" Text="{Binding}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- Activity -->
+      <StackPanel Spacing="8">
+        <TextBlock Classes="h2" Text="Activity" />
+        <Border Classes="panel" Padding="16" MaxHeight="260">
+          <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Log}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="sys:String">
+                  <TextBlock Classes="muted small" Margin="0,2" TextWrapping="Wrap" Text="{Binding}" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+      </StackPanel>
+  </StackPanel>
+</UserControl>

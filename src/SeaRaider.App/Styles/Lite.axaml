@@ -1,0 +1,14 @@
+<!--
+  "Blur and glow" off (Settings → General → Appearance & performance): a flat look that's lighter on the graphics card.
+  Shadows and glows are drawn as blurred shapes every frame they're on screen; with many cards that adds up while
+  scrolling. Loaded last (after both skins), so it wins. The window blur behind pop-outs is switched off in code.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="Border.card, Border.card:pointerover, Border.card.installed, Border.card.installed:pointerover, Border.glow, Border.glow:pointerover, Border.hero, Border.dialog, Border.popout, Border.friends-overlay">
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.brass:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.quiet:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.upcoming-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.media-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+  </Style>
+</Styles>

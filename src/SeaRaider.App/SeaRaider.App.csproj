@@ -1,0 +1,84 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    SeaRaider.App — Avalonia 11 desktop shell (MVVM via CommunityToolkit.Mvvm).
+    Build, run and publish commands are in the README.
+  -->
+  <PropertyGroup>
+    <!-- Windows-only app: the verification window hosts WebView2 in a small Windows Forms window. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>SeaRaider.App</RootNamespace>
+    <AssemblyName>SeaRaider</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- SeaRaider.exe's icon (Explorer, taskbar, desktop shortcuts). -->
+    <ApplicationIcon>Assets\SeaRaider.ico</ApplicationIcon>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <!-- Bindings are compiled & type-checked at build time (needs x:DataType in every view/template). -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <!-- F12 dev-tools in Debug builds only -->
+    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="Avalonia.Controls.ItemsRepeater" />
+    <PackageReference Include="AsyncImageLoader.Avalonia" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Web.WebView2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- UseWindowsForms adds global usings that clash with Avalonia (Application, Button, Image, Color…).
+         WinForms types are referenced explicitly in CaptchaResolverWindow instead. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SeaRaider.Core\SeaRaider.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- "The Next Generation" skin's display font: Orbitron (SIL Open Font License, see Assets/Fonts/OFL-Orbitron.txt). -->
+    <AvaloniaResource Include="Assets\Fonts\Orbitron.ttf" />
+    <!-- The built-in logo (sidebar) and window icon. A custom logo can be chosen in Settings › General. -->
+    <AvaloniaResource Include="Assets\logo.png" />
+    <AvaloniaResource Include="Assets\SeaRaider.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Trailer player: hls.js (Apache-2.0, see LICENSE-hls.js.txt) plays Steam's HLS trailers. Written to
+         %LOCALAPPDATA%\SeaRaider\player at run time, so it also works from a single-file publish. -->
+    <EmbeddedResource Include="Assets\player\hls.min.js" LogicalName="SeaRaider.Player.hls.min.js" />
+    <EmbeddedResource Include="Assets\player\LICENSE-hls.js.txt" LogicalName="SeaRaider.Player.LICENSE-hls.js.txt" />
+    <!-- dash.js (BSD-3-Clause, see LICENSE-dash.js.txt): Steam's own player uses DASH; tried before HLS. -->
+    <EmbeddedResource Include="Assets\player\dash.all.min.js" LogicalName="SeaRaider.Player.dash.all.min.js" />
+    <EmbeddedResource Include="Assets\player\LICENSE-dash.js.txt" LogicalName="SeaRaider.Player.LICENSE-dash.js.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Baked-in default friends relay (read by SeaRaider.Core.Social.RelayDefaults). -->
+    <AssemblyMetadata Include="SeaRaiderDefaultRelay" Value="$(SeaRaiderDefaultRelay)" />
+    <!-- Update feed and release key (read by SeaRaider.Core.Updates.UpdateDefaults). -->
+    <AssemblyMetadata Include="SeaRaiderUpdateFeed" Value="$(SeaRaiderUpdateFeed)" />
+    <AssemblyMetadata Include="SeaRaiderUpdatePublicKey" Value="$(SeaRaiderUpdatePublicKey)" />
+  </ItemGroup>
+
+  <!--
+    MSB3277 "conflicts between different versions of WindowsBase": the WebView2 package references both its WinForms
+    and its WPF control. SeaRaider hosts WebView2 in Windows Forms only, so the WPF assembly (built against WindowsBase 5.0)
+    is dropped before reference resolution. Nothing in SeaRaider uses Microsoft.Web.WebView2.Wpf.
+  -->
+  <Target Name="SeaRaiderDropWebView2Wpf" BeforeTargets="ResolveAssemblyReferences;ResolveTargetingPackAssets">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
+</Project>

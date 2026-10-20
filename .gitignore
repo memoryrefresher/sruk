@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+TestResults/
+publish/
+
+# Update signing key: never commit it
+*.pem
+# Release output (scripts/release.ps1)
+release/
