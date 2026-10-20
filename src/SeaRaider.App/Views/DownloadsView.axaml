@@ -1,0 +1,192 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="SeaRaider.App.Views.DownloadsView"
+             x:DataType="vm:DownloadsViewModel">
+
+  <UserControl.Resources>
+    <!-- One job row, shared by the queue and the finished list. -->
+    <DataTemplate x:Key="JobRow" x:DataType="vm:DownloadJobViewModel">
+      <Border Classes="panel job-row" Padding="16" Margin="0,0,0,12">
+        <Grid ColumnDefinitions="Auto,136,*,Auto">
+
+          <!-- Queue position + reorder (advanced options) -->
+          <StackPanel Margin="0,0,12,0" Spacing="2" VerticalAlignment="Center" IsVisible="{Binding ShowReorder}">
+            <TextBlock Classes="queue-number" Text="{Binding QueueLabel}" />
+            <Button Classes="icon" ToolTip.Tip="Move up" Command="{Binding MoveUpCommand}" IsEnabled="{Binding CanMoveUp}">
+              <Path Data="M4 10 L8 6 L12 10" />
+            </Button>
+            <Button Classes="icon" ToolTip.Tip="Move down" Command="{Binding MoveDownCommand}" IsEnabled="{Binding CanMoveDown}">
+              <Path Data="M4 6 L8 10 L12 6" />
+            </Button>
+          </StackPanel>
+
+          <Border Grid.Column="1" Width="136" Height="76" CornerRadius="8" ClipToBounds="True" VerticalAlignment="Top"
+                  Background="{DynamicResource CoverPlaceholderBrush}">
+            <Image Stretch="UniformToFill" img:ImageLoader.Source="{Binding CoverImageUrl}" />
+          </Border>
+
+          <StackPanel Grid.Column="2" Margin="20,0,20,0" Spacing="9">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="h2" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Grid.Column="1" Classes="job-percent" Margin="16,0,0,0" Text="{Binding PercentText}" />
+            </Grid>
+
+            <!-- The three steps, and what's happening in one sentence -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Border Classes="step" Classes.current="{Binding Step1Current}" Classes.done="{Binding Step1Done}">
+                <TextBlock Text="1  Download" />
+              </Border>
+              <Border Classes="step-line" />
+              <Border Classes="step" Classes.current="{Binding Step2Current}" Classes.done="{Binding Step2Done}">
+                <TextBlock Text="2  Unpack" />
+              </Border>
+              <Border Classes="step-line" />
+              <Border Classes="step" Classes.current="{Binding Step3Current}" Classes.done="{Binding Step3Done}">
+                <TextBlock Text="{Binding Step3Label, StringFormat='3  {0}'}" />
+              </Border>
+            </StackPanel>
+            <TextBlock Classes="job-headline" TextWrapping="Wrap" Text="{Binding Headline}" />
+
+            <ProgressBar Value="{Binding DownloadPercent}" IsIndeterminate="{Binding IsDownloadIndeterminate}"
+                         IsVisible="{Binding ShowDownloadBar}" />
+            <ProgressBar Classes="extract" Value="{Binding ExtractionPercent}" IsVisible="{Binding ShowExtraction}" />
+
+            <!-- For the curious: parts, hosts, speeds, peers, limits -->
+            <ToggleButton Classes="disclosure" IsChecked="{Binding DetailsOpen}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding DetailsToggleText}" />
+                <Path Classes="chevron" Data="M4 6 L8 10 L12 6" />
+              </StackPanel>
+            </ToggleButton>
+            <StackPanel Classes="job-details" Spacing="4" IsVisible="{Binding DetailsOpen}">
+              <TextBlock Classes="small muted" TextWrapping="Wrap" Text="{Binding DetailText}" />
+              <WrapPanel>
+                <TextBlock Classes="small" Margin="0,0,16,2" Text="{Binding SizeText}" />
+                <TextBlock Classes="small" Margin="0,0,16,2" FontWeight="SemiBold" Foreground="{DynamicResource BiolumeBrush}"
+                           Text="{Binding SpeedText}" />
+                <TextBlock Classes="small muted" Margin="0,0,16,2" Text="{Binding EtaText}" />
+                <TextBlock Classes="small muted" Margin="0,0,16,2" Text="{Binding Transport}" />
+                <TextBlock Classes="small muted" Margin="0,0,16,2" IsVisible="{Binding HasPeers}" Text="{Binding PeersText}" />
+                <TextBlock Classes="small brass" Margin="0,0,16,2" IsVisible="{Binding IsSeeding}" Text="{Binding SeedText}" />
+                <TextBlock Classes="small muted" Margin="0,0,16,2" IsVisible="{Binding HasLimit}" Text="{Binding LimitText}" />
+                <Button Classes="link" FontSize="12" Margin="0,0,10,2" IsVisible="{Binding CanCopyLink}"
+                        Content="{Binding CopyLinkLabel}" Command="{Binding CopyLinkCommand}" />
+                <TextBlock Classes="brass small" Text="{Binding CopyFeedback}" />
+              </WrapPanel>
+            </StackPanel>
+
+            <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding HasJobError}" Text="{Binding JobError}" />
+            <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding HasError}" Text="{Binding ErrorMessage}" />
+          </StackPanel>
+
+          <!-- Actions -->
+          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
+            <Border Classes="glow" IsVisible="{Binding CanRunInstaller}">
+              <Button Classes="primary" Padding="16,8" Content="Install" Command="{Binding RunInstallerCommand}" />
+            </Border>
+            <Button Classes="quiet" Content="Pause" IsVisible="{Binding CanPause}" Command="{Binding PauseCommand}" />
+            <Button Classes="primary" Padding="16,8" Content="{Binding ResumeLabel}" IsVisible="{Binding CanResume}"
+                    Command="{Binding ResumeCommand}" />
+            <Button Classes="quiet" Content="Stop seeding" IsVisible="{Binding IsSeeding}" Command="{Binding StopSeedingCommand}" />
+            <Button Classes="quiet" Content="Clear" IsVisible="{Binding CanRemove}" Command="{Binding RemoveCommand}"
+                    ToolTip.Tip="Remove from this list. An installed game stays installed." />
+
+            <!-- Queue menu: order, force start, per-download speed limits, cancel -->
+            <Button Classes="icon more" ToolTip.Tip="More" IsVisible="{Binding CanSetLimits}">
+              <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+                <Ellipse Width="4" Height="4" />
+                <Ellipse Width="4" Height="4" />
+                <Ellipse Width="4" Height="4" />
+              </StackPanel>
+              <Button.Flyout>
+                <Flyout Placement="BottomEdgeAlignedRight">
+                  <StackPanel Spacing="10" Width="280" Margin="4">
+                    <StackPanel Spacing="6" IsVisible="{Binding CanReorder}">
+                      <TextBlock Classes="small muted" Text="Queue" />
+                      <WrapPanel>
+                        <Button Classes="quiet" Margin="0,0,6,6" Content="Move to top" Command="{Binding MoveToTopCommand}" />
+                        <Button Classes="quiet" Margin="0,0,6,6" Content="Move to bottom" Command="{Binding MoveToBottomCommand}" />
+                        <Button Classes="quiet" Margin="0,0,6,6" Content="Force start" IsVisible="{Binding CanForceStart}"
+                                ToolTip.Tip="Start now, even if all download slots are busy" Command="{Binding ForceStartCommand}" />
+                      </WrapPanel>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="small muted" Text="Speed limit for this download (KB/s, 0 = none)" />
+                      <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+                        <TextBlock Classes="small" VerticalAlignment="Center" Margin="0,0,10,6" Text="Download" />
+                        <NumericUpDown Grid.Column="1" Margin="0,0,0,6" Value="{Binding EditDownloadLimit}" Minimum="0" Maximum="1000000"
+                                       Increment="100" FormatString="0" />
+                        <TextBlock Grid.Row="1" Classes="small" VerticalAlignment="Center" Margin="0,0,10,0" Text="Upload"
+                                   IsVisible="{Binding IsTorrent}" />
+                        <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding EditUploadLimit}" Minimum="0" Maximum="1000000"
+                                       Increment="50" FormatString="0" IsVisible="{Binding IsTorrent}" />
+                      </Grid>
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Classes="primary" Content="Apply limit" Command="{Binding ApplyLimitsCommand}" />
+                        <Button Classes="quiet" Content="No limit" Command="{Binding ClearLimitsCommand}" />
+                      </StackPanel>
+                    </StackPanel>
+
+                    <Button Classes="danger" HorizontalAlignment="Left" Content="Cancel download" IsVisible="{Binding CanCancel}"
+                            Command="{Binding CancelCommand}" />
+                  </StackPanel>
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="32,4,32,40" Spacing="18">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="h1" Text="Downloads" />
+          <StackPanel Orientation="Horizontal" Spacing="16">
+            <TextBlock Classes="muted" Text="{Binding ActiveCount, StringFormat='{}{0} downloading'}" />
+            <TextBlock Classes="muted" Text="{Binding QueuedCount, StringFormat='{}{0} waiting'}" />
+            <TextBlock Classes="muted" Text="{Binding TotalSpeedText}" />
+          </StackPanel>
+          <Button Classes="link" FontSize="12" HorizontalAlignment="Left" Margin="0,4,0,0"
+                  Content="{Binding LimitsText}" ToolTip.Tip="Download settings" Command="{Binding OpenDownloadSettingsCommand}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Button Classes="quiet" Content="Pause all" IsVisible="{Binding HasQueue}" Command="{Binding PauseAllCommand}" />
+          <Button Classes="quiet" Content="Resume all" IsVisible="{Binding HasQueue}" Command="{Binding ResumeAllCommand}" />
+          <Button Classes="quiet" Content="Clear finished" IsVisible="{Binding HasFinished}" Command="{Binding ClearFinishedCommand}" />
+        </StackPanel>
+      </Grid>
+
+      <Border Classes="error-banner" IsVisible="{Binding HasError}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+          <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+        </Grid>
+      </Border>
+
+      <Border Classes="panel" Padding="40" IsVisible="{Binding IsEmpty}">
+        <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
+          <TextBlock Classes="h2" Text="No downloads" />
+          <TextBlock Classes="body muted"
+                     Text="Press Download &amp; Install on any game in the Store. It shows up here while SeaRaider downloads, unpacks and sets it up, and then it's in your Library, ready to play." />
+        </StackPanel>
+      </Border>
+
+      <StackPanel Spacing="8" IsVisible="{Binding HasQueue}">
+        <TextBlock Classes="h2" Text="Queue" />
+        <ItemsControl ItemsSource="{Binding Queue}" ItemTemplate="{StaticResource JobRow}" />
+      </StackPanel>
+
+      <StackPanel Spacing="8" IsVisible="{Binding HasFinished}">
+        <TextBlock Classes="h2" Text="Finished" />
+        <ItemsControl ItemsSource="{Binding Finished}" ItemTemplate="{StaticResource JobRow}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
