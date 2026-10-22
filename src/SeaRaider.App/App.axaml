@@ -1,0 +1,51 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:views="using:SeaRaider.App.Views"
+             x:Class="SeaRaider.App.App"
+             Name="SeaRaider"
+             RequestedThemeVariant="Dark">
+
+  <Application.Resources>
+    <!-- Inter is bundled via Avalonia.Fonts.Inter (WithInterFont() in Program.cs). -->
+    <FontFamily x:Key="ContentControlThemeFontFamily">fonts:Inter#Inter, $Default</FontFamily>
+  </Application.Resources>
+
+  <!-- View-model → view mapping. Explicit templates (no reflection-based ViewLocator) keep
+       the app trim/AOT friendly and make every binding compile-time checked. -->
+  <Application.DataTemplates>
+    <DataTemplate DataType="{x:Type vm:StorefrontViewModel}">
+      <views:StorefrontView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:GameDetailViewModel}">
+      <views:GameDetailView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:LibraryViewModel}">
+      <views:LibraryView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:DownloadsViewModel}">
+      <views:DownloadsView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:WishlistViewModel}">
+      <views:WishlistView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:MediaViewModel}">
+      <views:MediaView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:OnboardingDialogViewModel}">
+      <views:OnboardingDialog />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+      <views:SettingsView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:InstallOptionsDialogViewModel}">
+      <views:InstallOptionsDialog />
+    </DataTemplate>
+  </Application.DataTemplates>
+
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://SeaRaider/Styles/Theme.axaml" />
+    <!-- Motion.axaml and Lite.axaml are added by EffectsService (Settings → Appearance & performance). -->
+  </Application.Styles>
+</Application>

@@ -1,0 +1,471 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:views="using:SeaRaider.App.Views"
+             x:Class="SeaRaider.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="32,4,32,40" Spacing="18" MaxWidth="{Binding PageMaxWidth}" HorizontalAlignment="Left">
+      <TextBlock Classes="h1" Text="Settings" />
+
+      <Border Classes="error-banner" IsVisible="{Binding HasError}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+          <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+        </Grid>
+      </Border>
+
+      <Border Classes="pill" HorizontalAlignment="Stretch">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Spacing="2" VerticalAlignment="Center">
+            <TextBlock FontWeight="SemiBold" Text="Show advanced options" />
+            <TextBlock Classes="muted small" TextWrapping="Wrap"
+                       Text="Off: everything works with one click and the defaults. On: download sources, file names, setup switches, speed limits, torrents, and technical details on downloads." />
+          </StackPanel>
+          <ToggleSwitch Grid.Column="1" Margin="16,0,0,0" IsChecked="{Binding ShowAdvancedOptions}" OnContent="" OffContent="" />
+        </Grid>
+      </Border>
+
+      <TabControl Classes="settings" SelectedIndex="{Binding SelectedTabIndex}" Padding="0,14,0,0">
+
+        <!-- General ============================================================================ -->
+        <TabItem Header="General">
+          <Border Classes="panel">
+            <StackPanel Spacing="18">
+              <StackPanel Spacing="6">
+                <TextBlock FontWeight="SemiBold" Text="Skin" />
+                <ComboBox SelectedIndex="{Binding SkinIndex}" Width="320">
+                  <ComboBoxItem Content="The Next Generation" />
+                  <ComboBoxItem Content="Legacy" />
+                </ComboBox>
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="The Next Generation: glass panels over a blurred backdrop of the featured game, with neon accents. Legacy: SeaRaider's original look. Changes right away." />
+              </StackPanel>
+
+              <!-- Appearance & performance: applied as you change them -->
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Appearance &amp; performance" />
+                <CheckBox IsChecked="{Binding Animations}" Content="Animations (buttons spring back, cards lift, pages and pop-ups settle in)" />
+                <CheckBox IsChecked="{Binding BlurAndGlow}" Content="Blur and glow (blur behind pop-ups, shadows and glowing buttons)" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Turn these off on slower PCs, laptops on battery, or if you prefer a calmer, flat look. Changes right away." />
+              </StackPanel>
+
+              <!-- Sounds: saved as you change them -->
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Sounds" />
+                <CheckBox IsChecked="{Binding SoundsEnabled}" Content="Play sounds" />
+                <StackPanel Spacing="8" Margin="28,0,0,0" IsEnabled="{Binding SoundsEnabled}">
+                  <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                    <TextBlock Classes="small" VerticalAlignment="Center" Margin="0,0,12,0" Text="Volume" />
+                    <Slider Grid.Column="1" Minimum="0" Maximum="100" SmallChange="5" LargeChange="10" VerticalAlignment="Center"
+                            Value="{Binding SoundVolume}" />
+                    <TextBlock Grid.Column="2" Classes="muted small" Width="48" TextAlignment="Right" VerticalAlignment="Center"
+                               Text="{Binding SoundVolumeText}" />
+                    <Button Grid.Column="3" Classes="quiet" Margin="12,0,0,0" Content="Play a sample" Command="{Binding PreviewSoundCommand}" />
+                  </Grid>
+                  <CheckBox IsChecked="{Binding SoundClicks}" Content="Clicks and toggles (very soft)" />
+                  <CheckBox IsChecked="{Binding SoundDownloads}" Content="A chime when a download or an install finishes" />
+                  <CheckBox IsChecked="{Binding SoundFriends}" Content="Friend requests and messages" />
+                  <CheckBox IsChecked="{Binding SoundAlerts}" Content="Wishlist games arriving in the store, and failed downloads" />
+                </StackPanel>
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Short and soft by design: the same sound never repeats within a moment, and clicks stay quiet under the chimes. Changes right away." />
+              </StackPanel>
+
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Store" />
+                <CheckBox IsChecked="{Binding HideNonGames}"
+                          Content="Hide site posts that aren't games (update digests, upcoming repacks, donation calls, announcements)" />
+                <CheckBox IsChecked="{Binding HideAdultGames}"
+                          Content="Hide adult games (nudity, sexual content)" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Anything else can be hidden with the &#215; in the top right corner of its card." />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="small" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding HiddenGamesText}" />
+                  <Button Grid.Column="1" Classes="quiet" Margin="12,0,0,0" Content="Show them again"
+                          IsVisible="{Binding HasHiddenGames}" Command="{Binding ShowHiddenGamesCommand}" />
+                </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock FontWeight="SemiBold" Text="Install games to" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Text="{Binding LibraryRoot}" />
+                  <Button Grid.Column="1" Classes="quiet" Margin="10,0,0,0" Content="Browse" Command="{Binding BrowseLibraryCommand}" />
+                </Grid>
+                <TextBlock Classes="muted small" Text="Each game gets its own folder here, named after the game." />
+              </StackPanel>
+
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Emulators" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Console games (ROMs and disc images) open in an emulator when you press Play. Choose the emulator for each system you play; the same one can serve several (RetroArch, Dolphin)." />
+                <CheckBox IsChecked="{Binding PreferRetroArch}" Content="Use RetroArch for every system it plays (recommended)" />
+                <Grid ColumnDefinitions="*,Auto" Margin="28,0,0,0" IsEnabled="{Binding PreferRetroArch}" MaxWidth="640" HorizontalAlignment="Left">
+                  <TextBox Text="{Binding RetroArchPath}" MinWidth="380" Watermark="retroarch.exe (found by itself when empty)" />
+                  <Button Grid.Column="1" Classes="quiet" Margin="8,0,0,0" Content="Browse" Command="{Binding BrowseRetroArchCommand}" />
+                </Grid>
+                <TextBlock Classes="muted small" TextWrapping="Wrap" Margin="28,0,0,0"
+                           Text="Every system RetroArch has a core for plays in RetroArch (NES to PS2, GameCube and Wii included), full screen. A missing core is downloaded from libretro the first time a game needs it. Switch, PS3 and Wii U still use their own emulators below, and a system's own emulator is used if its core can't be got." />
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <Button Classes="quiet" Content="Find emulators" Command="{Binding FindEmulatorsCommand}"
+                          IsEnabled="{Binding !IsScanningEmulators}" />
+                  <TextBlock Classes="small" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding EmulatorScanText}"
+                             IsVisible="{Binding EmulatorScanText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+                <ItemsControl ItemsSource="{Binding EmulatorRows}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EmulatorRowViewModel">
+                      <Grid ColumnDefinitions="190,*,Auto" Margin="0,3">
+                        <TextBlock Classes="small" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding SystemName}" />
+                        <TextBox Grid.Column="1" Text="{Binding ExePath}" Watermark="No emulator chosen" />
+                        <Button Grid.Column="2" Classes="quiet" Margin="10,0,0,0" Content="Browse" Command="{Binding BrowseCommand}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Known emulators are started full screen straight into the game. Press Save to keep your choices." />
+              </StackPanel>
+
+              <StackPanel Spacing="6" IsVisible="{Binding ShowAdvancedOptions}">
+                <TextBlock FontWeight="SemiBold" Text="Temporary downloads" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Text="{Binding TempRoot}" />
+                  <Button Grid.Column="1" Classes="quiet" Margin="10,0,0,0" Content="Browse" Command="{Binding BrowseTempCommand}" />
+                </Grid>
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Archives wait here until they're extracted. Putting this on the same drive as your library makes installs faster." />
+              </StackPanel>
+
+              <CheckBox IsChecked="{Binding AskBeforeDownload}"
+                        Content="Ask for the folder and file names before each download" />
+              <CheckBox IsChecked="{Binding AutoInstallWebView2}"
+                        Content="Install or repair the WebView2 Runtime automatically when the verification window can't start" />
+              <CheckBox IsChecked="{Binding DeleteArchivesAfterInstall}"
+                        Content="Delete downloaded archives after a successful install" />
+              <CheckBox IsChecked="{Binding PreserveInFolderSaves}"
+                        Content="Back up save folders inside a game's folder before uninstalling, and restore them on reinstall" />
+
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Screenshots and trailers" />
+                <CheckBox IsChecked="{Binding UseSteamMedia}"
+                          Content="When a page has no screenshots, get them from the Steam store (matched by title)" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap" IsVisible="{Binding ShowAdvancedOptions}"
+                           Text="Optional IGDB lookup (free Twitch developer app at dev.twitch.tv): used when Steam has no match." />
+                <Grid ColumnDefinitions="*,10,*" IsVisible="{Binding ShowAdvancedOptions}">
+                  <TextBox Text="{Binding IgdbClientId}" Watermark="IGDB client ID" />
+                  <TextBox Grid.Column="2" Text="{Binding IgdbClientSecret}" Watermark="IGDB client secret" PasswordChar="•" />
+                </Grid>
+              </StackPanel>
+
+              <!-- Media player: how a title's player is picked on its page -->
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Media player" />
+                <Grid ColumnDefinitions="Auto,12,*" RowDefinitions="Auto,8,Auto">
+                  <TextBlock VerticalAlignment="Center" Text="Preferred player sites" />
+                  <TextBox Grid.Column="2" MaxWidth="460" HorizontalAlignment="Left" MinWidth="320"
+                           Text="{Binding MediaPreferredPlayers}" Watermark="embed.st (several: separate with commas, best first)" />
+                  <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="Pick stream number" />
+                  <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Spacing="10">
+                    <NumericUpDown Value="{Binding MediaStreamNumber}" Minimum="0" Maximum="20" Increment="1"
+                                   FormatString="0" Width="140" HorizontalAlignment="Left" />
+                    <TextBlock Classes="muted small" VerticalAlignment="Center" Text="1 = &quot;Stream 1&quot;, 0 = don't pick" />
+                  </StackPanel>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                  <TextBlock VerticalAlignment="Center" Text="Video quality" />
+                  <ComboBox SelectedIndex="{Binding PlayerQualityIndex}" MinWidth="320">
+                    <ComboBoxItem Content="Highest (steps down only if the connection can't keep up)" />
+                    <ComboBoxItem Content="Always highest (never lower)" />
+                    <ComboBoxItem Content="Automatic (balanced)" />
+                    <ComboBoxItem Content="Data saver (480p at most)" />
+                  </ComboBox>
+                </StackPanel>
+                <CheckBox IsChecked="{Binding MediaClickStreams}"
+                          Content="Click the stream button for me when a page only shows its player after a click" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="When you play a title on the Media tab, SeaRaider looks on its page for the chosen stream (&quot;Stream 1&quot;, &quot;Server 1&quot; …) and for a player on your preferred sites, and plays that. If the page only loads its player once the button is clicked, SeaRaider opens the page in a hidden browser, clicks it, and plays the player that loads, with pop-up ads blocked. Leave the sites empty to take whichever player the stream button loads." />
+              </StackPanel>
+
+              <!-- Bet slip: the sportsbook beside the player -->
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Bet slip" />
+                <CheckBox IsChecked="{Binding BetSlipEnabled}" Content="Bet slip beside the player (the sportsbook next to the video)" />
+                <CheckBox IsChecked="{Binding BetSlipAutoOpen}" IsEnabled="{Binding BetSlipEnabled}" Margin="28,0,0,0"
+                          Content="Open it by itself when a match (&quot;A vs B&quot;) starts playing" />
+                <TextBox IsEnabled="{Binding BetSlipEnabled}" MaxWidth="560" HorizontalAlignment="Left" MinWidth="380"
+                         Text="{Binding BetSlipUrl}" Watermark="https://roobet.com/sports" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Opens the sportsbook's own page (Roobet by default) next to what's playing, so you can follow the match and your bet slip together. You sign in on the site with your own account; SeaRaider never sees it, and the sign-in is remembered in its own browser profile. The address can name what's playing: {query} (the title), {home} and {away} (a match's sides). 18+ and only where the site is allowed: check its terms for your country." />
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock FontWeight="SemiBold" Text="Desktop shortcuts" />
+                <CheckBox IsChecked="{Binding RouteGameShortcuts}"
+                          Content="Start games' desktop shortcuts through SeaRaider (play time, and friends see what you're playing)" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="A game's setup puts a shortcut on your desktop that runs the game directly. SeaRaider points it at itself instead (same name and icon) and starts the game for you, opening minimised if it wasn't running. Turn this off to put the shortcuts back. Games started any other way are noticed too while SeaRaider is open." />
+              </StackPanel>
+
+              <StackPanel Spacing="6" IsVisible="{Binding ShowAdvancedOptions}">
+                <TextBlock FontWeight="SemiBold" Text="Re-check known game pages after (days)" />
+                <NumericUpDown Value="{Binding RecrawlAfterDays}" Minimum="1" Maximum="365" Increment="1"
+                               FormatString="0" Width="140" HorizontalAlignment="Left" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="For offline indexes: pages listed in a sitemap are re-read as soon as the sitemap says they changed; other pages wait this long." />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </TabItem>
+
+        <!-- Sources ============================================================================ -->
+        <TabItem Header="Sources">
+          <views:SourcesView DataContext="{Binding Sources}" />
+        </TabItem>
+
+        <!-- Downloads ========================================================================== -->
+        <TabItem Header="Downloads" IsVisible="{Binding ShowAdvancedOptions}">
+          <Border Classes="panel">
+            <StackPanel Spacing="18">
+              <StackPanel Spacing="4">
+                <TextBlock FontWeight="SemiBold" Text="Queue" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="New games join the end of the queue and start when a slot is free. A game gives its slot back as soon as its download finishes, so the next one starts while it extracts." />
+              </StackPanel>
+
+              <Grid ColumnDefinitions="300,Auto" RowDefinitions="Auto,Auto,Auto">
+                <TextBlock Classes="small" VerticalAlignment="Center" Text="Maximum active downloads" />
+                <NumericUpDown Grid.Column="1" Value="{Binding MaxConcurrentJobs}" Minimum="1" Maximum="20" Increment="1"
+                               FormatString="0" Width="140" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="1" Classes="small" VerticalAlignment="Center" Text="Of those, torrents at most" />
+                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding MaxActiveTorrents}" Minimum="1" Maximum="20" Increment="1"
+                               FormatString="0" Width="140" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="2" Classes="small" VerticalAlignment="Center" Text="Games extracting at the same time" />
+                <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding MaxActiveExtractions}" Minimum="1" Maximum="8" Increment="1"
+                               FormatString="0" Width="140" />
+              </Grid>
+
+              <StackPanel Spacing="4">
+                <TextBlock FontWeight="SemiBold" Text="Bandwidth" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="In KB/s, 0 means unlimited (1024 KB/s = 1 MB/s). The download limit is shared by every download, direct and torrent. Each download can also get its own limit from its menu in the Download Manager." />
+              </StackPanel>
+              <Grid ColumnDefinitions="300,Auto" RowDefinitions="Auto,Auto">
+                <TextBlock Classes="small" VerticalAlignment="Center" Text="Overall download limit (KB/s)" />
+                <NumericUpDown Grid.Column="1" Value="{Binding GlobalDownloadLimitKBps}" Minimum="0" Maximum="10000000" Increment="512"
+                               FormatString="0" Width="160" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="1" Classes="small" VerticalAlignment="Center" Text="Overall torrent upload limit (KB/s)" />
+                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding GlobalUploadLimitKBps}" Minimum="0" Maximum="10000000"
+                               Increment="128" FormatString="0" Width="160" />
+              </Grid>
+
+              <CheckBox IsChecked="{Binding PreferTorrents}"
+                        Content="Prefer torrents when a page offers both torrent and direct downloads" />
+
+              <StackPanel Spacing="6">
+                <TextBlock FontWeight="SemiBold" Text="Low disk space mode (unpack while downloading)" />
+                <ComboBox SelectedIndex="{Binding LowDiskModeIndex}" Width="320">
+                  <ComboBoxItem Content="Automatic: when the drive is too full" />
+                  <ComboBoxItem Content="Always, for multi-part RAR downloads" />
+                  <ComboBoxItem Content="Never: download everything, then unpack" />
+                </ComboBox>
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Multi-part RAR downloads (game.part1.rar, part2 …) are unpacked part by part while the next parts download, and each part is deleted once unpacked. A game then needs about its unpacked size, not archive plus game. Other formats (7z, single files, torrents) need the whole archive first." />
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock FontWeight="SemiBold" Text="File hosts" />
+                <CheckBox IsChecked="{Binding BrowserAutoClick}"
+                          Content="Click file hosts' download buttons for me and block their ad pop-ups" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Hosts like DataNodes, FileKeeper and FuckingFast only serve a real browser, so their files download in SeaRaider's own browser window. You only step in for a captcha. If a host has lost a file, the same file is fetched from the next host, then from the torrent." />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </TabItem>
+
+        <!-- Setup programs ===================================================================== -->
+        <TabItem Header="Setup programs" IsVisible="{Binding ShowAdvancedOptions}">
+          <Border Classes="panel">
+            <StackPanel Spacing="16">
+              <CheckBox IsChecked="{Binding PreferSilentInstall}"
+                        Content="Install setup programs silently when they support it" />
+              <CheckBox IsChecked="{Binding ShowSetupProgress}"
+                        Content="Show the setup's own progress window during silent installs" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap" Margin="28,-10,0,0"
+                         Text="Repacks always show their progress window: their extra questions can't be answered while hidden." />
+              <CheckBox IsChecked="{Binding AutoRunInstallers}"
+                        Content="Start a setup program as soon as its download is ready" />
+              <CheckBox IsChecked="{Binding MuteSetupAudio}"
+                        Content="Mute setup programs while they run (repack installers play music)" />
+
+              <StackPanel Spacing="6">
+                <TextBlock FontWeight="SemiBold" Text="After a game is installed" />
+                <ComboBox SelectedIndex="{Binding SetupFilesIndex}" Width="320">
+                  <ComboBoxItem Content="Ask me whether to delete the setup files" />
+                  <ComboBoxItem Content="Delete the setup files" />
+                  <ComboBoxItem Content="Keep the setup files" />
+                </ComboBox>
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="The setup files aren't needed to play. Keeping them only lets you reinstall without downloading again." />
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock FontWeight="SemiBold" Text="Leftover setup files" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding LeftoverSetupText}" />
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <Button Classes="quiet" Content="Delete leftovers" Command="{Binding CleanUpSetupFilesCommand}"
+                          IsVisible="{Binding HasLeftoverSetupFiles}" IsEnabled="{Binding !IsCleaningSetupFiles}"
+                          ToolTip.Tip="Setup folders no game needs: games waiting to install and untried installs are left alone" />
+                  <Button Classes="link" FontSize="12" Content="Open the setup folder" Command="{Binding OpenSetupFolderCommand}" />
+                </StackPanel>
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="SeaRaider also clears these by itself each time it starts. Folders that are still in use are retried then." />
+              </StackPanel>
+
+              <StackPanel Spacing="6">
+                <TextBlock FontWeight="SemiBold" Text="DirectX, Visual C++ and other runtimes" />
+                <ComboBox SelectedIndex="{Binding SetupRuntimesIndex}" Width="320">
+                  <ComboBoxItem Content="Install them quietly, without windows" />
+                  <ComboBoxItem Content="Skip them" />
+                  <ComboBoxItem Content="Show their installers" />
+                </ComboBox>
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Repack setups run these at the end, each with its own window. Most PCs already have them; skip them if yours does, and install them later only if a game won't start." />
+                <CheckBox IsChecked="{Binding BlockSetupWebPages}" Margin="0,4,0,0"
+                          Content="Close the web page a repack setup opens when it finishes" />
+                <CheckBox IsChecked="{Binding UncheckSetupLowRam}"
+                          Content="Untick &quot;Limit installer to 2 GB of RAM usage&quot; on the setup's first page" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap" Margin="28,0,0,0"
+                           Text="For these, repack setups run through SeaRaider's setup helper, which asks for administrator rights once (the setup asks for them anyway)." />
+              </StackPanel>
+
+              <StackPanel Spacing="6" Margin="0,6,0,0">
+                <TextBlock FontWeight="SemiBold" Text="When a setup gets stuck" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="A setup that uses no CPU and writes nothing for this long is waiting for something. SeaRaider brings its window to the front, and the Library offers Show setup window and Restart with wizard." />
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <NumericUpDown Value="{Binding InstallStallSeconds}" Minimum="5" Maximum="300" Increment="5"
+                                 FormatString="0" Width="140" />
+                  <TextBlock Classes="small" VerticalAlignment="Center" Text="seconds" />
+                </StackPanel>
+                <CheckBox IsChecked="{Binding AutoFallbackToInteractive}" Margin="0,6,0,0"
+                          Content="If a silent setup is stuck with no window, restart it with its normal wizard" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap" Margin="28,0,0,0"
+                           Text="Only before it has written anything to the game folder, so a half-finished install is never interrupted." />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </TabItem>
+
+        <!-- Torrents =========================================================================== -->
+        <TabItem Header="Torrents" IsVisible="{Binding ShowAdvancedOptions}">
+          <Border Classes="panel">
+            <StackPanel Spacing="16">
+              <StackPanel Spacing="8">
+                <CheckBox IsChecked="{Binding SeedAfterDownload}"
+                          Content="Keep sharing (seeding) finished torrents for a while" />
+                <Grid ColumnDefinitions="300,Auto" RowDefinitions="Auto,Auto,Auto" Margin="28,0,0,0"
+                      IsEnabled="{Binding SeedAfterDownload}">
+                  <TextBlock Classes="small" VerticalAlignment="Center" Text="Torrents seeding at the same time" />
+                  <NumericUpDown Grid.Column="1" Value="{Binding MaxActiveSeeds}" Minimum="0" Maximum="50" Increment="1"
+                                 FormatString="0" Width="140" Margin="0,0,0,8" />
+                  <TextBlock Grid.Row="1" Classes="small" VerticalAlignment="Center" Text="Stop at upload ratio (0 = no limit)" />
+                  <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding SeedRatioLimit}" Minimum="0" Maximum="100" Increment="0.25"
+                                 FormatString="0.00" Width="140" Margin="0,0,0,8" />
+                  <TextBlock Grid.Row="2" Classes="small" VerticalAlignment="Center" Text="Stop after (minutes, 0 = no limit)" />
+                  <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding SeedTimeLimitMinutes}" Minimum="0" Maximum="100000"
+                                 Increment="15" FormatString="0" Width="140" />
+                </Grid>
+                <TextBlock Classes="muted small" TextWrapping="Wrap" Margin="28,0,0,0"
+                           Text="Seeding starts after the game is extracted and uses no download slot. The downloaded files are deleted when it stops." />
+              </StackPanel>
+
+              <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Finding peers" />
+                <CheckBox IsChecked="{Binding AddPublicTrackers}"
+                          Content="Also use these public trackers (helps magnet links find peers)" />
+                <TextBox Text="{Binding PublicTrackersText}" AcceptsReturn="True" TextWrapping="NoWrap"
+                         MinHeight="120" MaxHeight="200" FontSize="13" IsEnabled="{Binding AddPublicTrackers}"
+                         Watermark="One tracker per line, e.g. udp://tracker.example.org:1337/announce" />
+                <Button Classes="link" HorizontalAlignment="Left" Content="Restore default trackers" Command="{Binding ResetTrackersCommand}" />
+                <TextBlock Margin="0,6,0,0" Classes="small" Text="Give up on a torrent that finds no peers after (minutes, 0 = never)" />
+                <NumericUpDown Value="{Binding TorrentNoPeersTimeoutMinutes}" Minimum="0" Maximum="1440" Increment="5"
+                               FormatString="0" Width="140" HorizontalAlignment="Left" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </TabItem>
+        <!-- Updates ============================================================================ -->
+        <TabItem Header="Updates">
+          <Border Classes="panel" DataContext="{Binding Updates}" x:DataType="vm:UpdateViewModel">
+            <StackPanel Spacing="14">
+              <TextBlock FontWeight="SemiBold" Text="{Binding CurrentVersionText}" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding SetupText}" />
+              <CheckBox IsChecked="{Binding CheckAutomatically}" IsEnabled="{Binding IsConfigured}"
+                        Content="Check for new versions automatically" />
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="quiet" Content="Check now" Command="{Binding CheckNowCommand}" IsEnabled="{Binding IsConfigured}" />
+                <Button Classes="primary" Content="Update and restart" Command="{Binding InstallCommand}"
+                        IsVisible="{Binding HasUpdate}" IsEnabled="{Binding !IsInstalling}" />
+                <ProgressBar Classes="thin" Width="90" VerticalAlignment="Center" IsIndeterminate="True" IsVisible="{Binding IsChecking}" />
+              </StackPanel>
+              <ProgressBar Classes="thin" IsVisible="{Binding IsInstalling}" Value="{Binding InstallProgress}" />
+              <TextBlock Classes="small" TextWrapping="Wrap" Text="{Binding StatusText}" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap" IsVisible="{Binding HasNotes}" Text="{Binding UpdateNotes}" />
+            </StackPanel>
+          </Border>
+        </TabItem>
+        <!-- Friends ============================================================================ -->
+        <TabItem Header="Friends">
+          <Border Classes="panel">
+            <StackPanel Spacing="16">
+              <CheckBox IsChecked="{Binding FriendsEnabled}" FontWeight="SemiBold"
+                        Content="Enable friends, presence, chat and the social overlay" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap" Margin="28,-10,0,0"
+                         Text="When off, SeaRaider closes its relay connection and stops watching for idle time; nothing social runs in the background." />
+
+              <StackPanel Spacing="6" IsEnabled="{Binding FriendsEnabled}">
+                <TextBlock FontWeight="SemiBold" Text="Relay address (optional)" />
+                <TextBox Text="{Binding RelayUrl}" Watermark="wss://relay.example.com/ws" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding DefaultRelayText}" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="Friends can only see each other on the same relay. SeaRaider.Relay is included; it runs on any always-on PC or server." />
+              </StackPanel>
+              <CheckBox IsChecked="{Binding ShareGameActivity}" IsEnabled="{Binding FriendsEnabled}" Content="Show friends which game I'm playing" />
+              <CheckBox IsChecked="{Binding ShareMediaActivity}" IsEnabled="{Binding FriendsEnabled}"
+                        Content="Show friends what I'm watching in SeaRaider's player (and let them watch along)" />
+              <StackPanel Spacing="6">
+                <TextBlock FontWeight="SemiBold" Text="Show me as Away after (minutes without input, 0 = never)" />
+                <NumericUpDown Value="{Binding AwayAfterMinutes}" Minimum="0" Maximum="240" Increment="5"
+                               FormatString="0" Width="140" HorizontalAlignment="Left" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </TabItem>
+      </TabControl>
+
+      <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding IsNotSourcesTab}">
+        <Button Classes="primary" Content="Save settings" Command="{Binding SaveCommand}" />
+        <Button Classes="quiet" Content="Reset to defaults" Command="{Binding RequestResetCommand}"
+                IsVisible="{Binding !IsConfirmingReset}"
+                ToolTip.Tip="Put every setting back to how SeaRaider ships (your library folder and hidden games are kept)" />
+        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsConfirmingReset}">
+          <TextBlock Classes="small" VerticalAlignment="Center" Text="Reset all settings to their defaults?" />
+          <Button Classes="quiet" Content="Keep my settings" Command="{Binding CancelResetCommand}" />
+          <Button Classes="danger" Content="Reset everything" Command="{Binding ResetToDefaultsCommand}" />
+        </StackPanel>
+        <TextBlock Classes="muted small" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="480"
+                   Text="{Binding SavedMessage}" />
+      </StackPanel>
+
+      <StackPanel Spacing="4">
+        <TextBlock Classes="muted small" Text="SeaRaider keeps its database, image cache and save backups in:" />
+        <Button Classes="link" HorizontalAlignment="Left" Content="{Binding DataFolder}" Command="{Binding OpenDataFolderCommand}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

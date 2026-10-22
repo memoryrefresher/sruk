@@ -1,0 +1,178 @@
+<!--
+  Motion: a light, springy feel (think a toned-down Mac OS X). Loaded after Theme.axaml, so these win where they overlap.
+
+  One rule everywhere: things settle with BackEaseOut, which overshoots its target by a hair (≈1–2 % of the move) before
+  coming to rest. Small moves only (a few pixels, a few percent of scale) and short times (under ⅓ s), so it reads as
+  "alive", never as wobbly. Nothing loops and nothing moves on its own except when something new appears.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Buttons: press in, spring back out ====================================================== -->
+  <Style Selector="Button.primary, Button.brass, Button.quiet, Button.danger, Button.wish-heart, Button.popout-close, Button.mirror-option, Button.source-tab, ToggleButton.disclosure">
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.26" Easing="BackEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.primary:pressed, Button.brass:pressed, Button.quiet:pressed, Button.danger:pressed, Button.popout-close:pressed, Button.source-tab:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.955)" />
+  </Style>
+  <Style Selector="Button.wish-heart:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.88)" />
+  </Style>
+  <Style Selector="Button.mirror-option:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.985)" />
+  </Style>
+  <Style Selector="Button.primary:pointerover, Button.brass:pointerover">
+    <Setter Property="RenderTransform" Value="translateY(-1px)" />
+  </Style>
+  <!-- The drop-down header (FuckingFast & co. live inside it) gives a little when pressed. -->
+  <Style Selector="ToggleButton.disclosure:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.985)" />
+  </Style>
+
+  <!-- The heart pops when a game goes on the wishlist. -->
+  <Style Selector="Button.wish-heart.on Path, Button.wish-big.on Path">
+    <Setter Property="RenderTransformOrigin" Value="50%,55%" />
+    <Style.Animations>
+      <Animation Duration="0:0:0.42" Easing="BackEaseOut" FillMode="Forward">
+        <KeyFrame Cue="0%">
+          <Setter Property="ScaleTransform.ScaleX" Value="0.6" />
+          <Setter Property="ScaleTransform.ScaleY" Value="0.6" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="ScaleTransform.ScaleX" Value="1" />
+          <Setter Property="ScaleTransform.ScaleY" Value="1" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Store cards lift a little under the pointer ================================================= -->
+  <Style Selector="Border.card">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.3" Easing="BackEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Border.card:pointerover">
+    <Setter Property="RenderTransform" Value="translateY(-3px)" />
+  </Style>
+
+  <!-- Coming-soon tiles: the same spring (the Theme's tile style already scales them on hover). -->
+  <Style Selector="Button.upcoming-tile, Button.media-tile">
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.3" Easing="BackEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <!-- Navigation rail: the hovered destination leans in a couple of pixels. -->
+  <Style Selector="ListBox.rail ListBoxItem">
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24" Easing="BackEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:pointerover">
+    <Setter Property="RenderTransform" Value="translateX(3px)" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:selected Border.rail-marker">
+    <Style.Animations>
+      <Animation Duration="0:0:0.3" Easing="BackEaseOut" FillMode="Forward">
+        <KeyFrame Cue="0%"><Setter Property="ScaleTransform.ScaleY" Value="0.2" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="ScaleTransform.ScaleY" Value="1" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Pages settle in: a short fade with an 10 px rise ============================================ -->
+  <Style Selector="TransitioningContentControl UserControl">
+    <Style.Animations>
+      <Animation Duration="0:0:0.34" Easing="BackEaseOut" FillMode="Forward">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="TranslateTransform.Y" Value="10" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="TranslateTransform.Y" Value="0" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Banners drop in from just above; the message toast rises in ================================= -->
+  <Style Selector="Border.notice-banner[IsVisible=True], Border.verify-banner[IsVisible=True], Border.error-banner[IsVisible=True]">
+    <Style.Animations>
+      <Animation Duration="0:0:0.36" Easing="BackEaseOut" FillMode="Forward">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="TranslateTransform.Y" Value="-8" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="TranslateTransform.Y" Value="0" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Button.toast[IsVisible=True]">
+    <Style.Animations>
+      <Animation Duration="0:0:0.38" Easing="BackEaseOut" FillMode="Forward">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="TranslateTransform.Y" Value="14" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="TranslateTransform.Y" Value="0" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- The in-window dialog (pre-download options) pops like the coming-soon page. -->
+  <Style Selector="Panel[IsVisible=True] > Border.dialog">
+    <Style.Animations>
+      <Animation Duration="0:0:0.28" Easing="BackEaseOut" FillMode="Forward">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="ScaleTransform.ScaleX" Value="0.94" />
+          <Setter Property="ScaleTransform.ScaleY" Value="0.94" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="ScaleTransform.ScaleX" Value="1" />
+          <Setter Property="ScaleTransform.ScaleY" Value="1" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- The coming-soon page grows in from the centre each time it opens. -->
+  <Style Selector="Panel#UpcomingOverlay[IsVisible=True] Border.popout">
+    <Style.Animations>
+      <Animation Duration="0:0:0.32" Easing="BackEaseOut" FillMode="Forward">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="0" />
+          <Setter Property="ScaleTransform.ScaleX" Value="0.92" />
+          <Setter Property="ScaleTransform.ScaleY" Value="0.92" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1" />
+          <Setter Property="ScaleTransform.ScaleX" Value="1" />
+          <Setter Property="ScaleTransform.ScaleY" Value="1" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+</Styles>
