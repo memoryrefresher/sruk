@@ -28,7 +28,11 @@ public sealed class HttpResumableDownloader(
     ILogger<HttpResumableDownloader> logger) : IHttpDownloader
 {
     private const int BufferSize = 1 << 20; // 1 MiB
-    private const int MaxAttempts = 6;
+    /// <summary>Failures in a row (without progress in between) before giving up; any progress starts the count again.</summary>
+    private const int MaxAttempts = 8;
+
+    /// <summary>How much a failed attempt must have downloaded to count as progress (resets <see cref="MaxAttempts"/>).</summary>
+    private const long ProgressToReset = 1 << 20;
     private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(250);
 
@@ -65,18 +69,25 @@ public sealed class HttpResumableDownloader(
         Directory.CreateDirectory(destinationDirectory);
         var fileName = ChooseFileName(url, fileNameHint);
 
-        for (var attempt = 1; ; attempt++)
+        // Hosts drop long connections now and then (a few times per large part is normal). A drop after real progress just
+        // resumes; only failures in a row, with nothing downloaded in between, use up the attempts.
+        var partPath = Path.Combine(destinationDirectory, fileName) + ".part";
+        long PartLength() => File.Exists(partPath) ? new FileInfo(partPath).Length : 0;
+        var failures = 0;
+        while (true)
         {
+            var before = PartLength();
             try
             {
                 return await DownloadOnceAsync(url, destinationDirectory, fileName, progress, options, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception ex) when (attempt < MaxAttempts && IsTransient(ex) && !cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (IsTransient(ex) && !cancellationToken.IsCancellationRequested)
             {
-                var delay = TimeSpan.FromSeconds(Math.Min(60, Math.Pow(2, attempt)));
-                logger.LogWarning(ex, "Download of {Url} failed (attempt {Attempt}/{Max}); retrying in {Delay}",
-                    url, attempt, MaxAttempts, delay);
-                progress?.Report(new TransferProgress(0, 0, 0, Detail: $"Connection lost — retrying in {delay.TotalSeconds:0}s"));
+                failures = PartLength() - before >= ProgressToReset ? 1 : failures + 1;
+                if (failures >= MaxAttempts) throw;
+                var delay = TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, failures)));
+                logger.LogWarning(ex, "Download of {Url} dropped ({Failures} in a row); resuming in {Delay}", url, failures, delay);
+                progress?.Report(new TransferProgress(0, 0, 0, Detail: $"Connection dropped — resuming in {delay.TotalSeconds:0}s"));
                 await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
             }
         }
@@ -185,6 +196,7 @@ public sealed class HttpResumableDownloader(
         progress?.Report(new TransferProgress(received, Math.Max(total, received), 0));
 
         var targetPath = ApplyContentDispositionName(response, finalPath);
+        if (targetPath == finalPath) targetPath = NameFromContent(response, finalPath, partPath);
         File.Move(partPath, targetPath, overwrite: true);
         try { File.Delete(metaPath); } catch (IOException) { }
         return targetPath;
@@ -224,6 +236,29 @@ public sealed class HttpResumableDownloader(
 
         var safe = string.Concat(serverName.Trim('"').Where(c => !Path.GetInvalidFileNameChars().Contains(c)));
         return safe.Length == 0 ? finalPath : Path.Combine(Path.GetDirectoryName(finalPath)!, safe);
+    }
+
+    /// <summary>
+    /// Still no real name (a download script like "/?__df=…" that names nothing): the address it redirected to, else the
+    /// file's own first bytes (a .zip is unpacked and a .gba is played only when the name says what they are).
+    /// </summary>
+    private static string NameFromContent(HttpResponseMessage response, string finalPath, string partPath)
+    {
+        if (Path.HasExtension(finalPath) && !finalPath.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)) return finalPath;
+        var directory = Path.GetDirectoryName(finalPath)!;
+
+        if (response.RequestMessage?.RequestUri is { } landed &&
+            Uri.UnescapeDataString(landed.Segments.LastOrDefault()?.Trim('/') ?? string.Empty) is { Length: > 0 } landedName &&
+            Path.HasExtension(landedName) && !landedName.EndsWith(".php", StringComparison.OrdinalIgnoreCase))
+        {
+            var safe = string.Concat(landedName.Where(c => !Path.GetInvalidFileNameChars().Contains(c))).Trim();
+            if (safe.Length > 0 && !string.Equals(Path.Combine(directory, safe), finalPath, StringComparison.OrdinalIgnoreCase))
+                return Path.Combine(directory, safe);
+        }
+
+        return FileTypeSniffer.Sniff(partPath) is { } extension
+            ? Path.Combine(directory, Path.GetFileNameWithoutExtension(finalPath) + extension)
+            : finalPath;
     }
 
     private static bool IsHtml(HttpResponseMessage response) =>

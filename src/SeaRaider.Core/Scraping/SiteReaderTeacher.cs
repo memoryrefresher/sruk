@@ -28,7 +28,26 @@ public sealed record LearnHints
     /// <summary>A CSS selector for the download links ("a.mirror", "#downloads a"). Used as given when it matches links.</summary>
     public string? DownloadSelector { get; init; }
 
-    public bool HasDownloadHints => DownloadExamples.Count > 0 || !string.IsNullOrWhiteSpace(DownloadSelector);
+    /// <summary>The download button's code, copied from View source (Ctrl+U): <c>&lt;a class="btn" href="…"&gt;Download&lt;/a&gt;</c>.</summary>
+    public string? DownloadSnippet { get; init; }
+
+    public bool HasDownloadHints => DownloadExamples.Count > 0 || !string.IsNullOrWhiteSpace(DownloadSelector) || !string.IsNullOrWhiteSpace(DownloadSnippet);
+
+    /// <summary>
+    /// Where a field is on the page, as the user showed it: the words on the page ("Elden Ring", "Ubisoft"), a piece of the
+    /// page's code from View source, or a CSS selector. Keys: a game page's <see cref="PageFields"/>; a list's "listGame"
+    /// (one game's name as the list shows it) and "nextPage" (the next-page button).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Pointers { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The address of the list's second page ("example.com/demo/page/2/"): every page is then read by its number.</summary>
+    public string? PageTwoAddress { get; init; }
+
+    public static readonly string[] PageFields = ["title", "cover", "description", "developer", "publisher", "version", "size", "releaseDate", "updated", "genres"];
+    public static readonly string[] ListFields = ["listGame", "nextPage"];
+
+    public bool HasPagePointers => Pointers.Any(p => PageFields.Contains(p.Key, StringComparer.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(p.Value));
+    public bool HasListPointers => Pointers.Any(p => ListFields.Contains(p.Key, StringComparer.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(p.Value));
 
     /// <summary>Splits what was typed into the examples box: one per line (several addresses on a line are told apart too).</summary>
     public static IReadOnlyList<string> SplitExamples(string? text) =>
@@ -88,6 +107,9 @@ public static class SiteReaderTeacher
     public static async Task<SiteReaderLesson> LearnAsync(string html, string? address, LearnHints? hints = null, CancellationToken ct = default)
     {
         html = (html ?? string.Empty).Trim();
+        hints ??= new LearnHints();
+        if (html.Length == 0 && !string.IsNullOrWhiteSpace(hints.PageTwoAddress))
+            return PagesOnly(hints.PageTwoAddress, address);
         if (html.Length < 200 || !html.Contains('<') || !Regex.IsMatch(html, @"<(html|body|div|article|main|h1)\b", Ci))
             throw new ArgumentException(
                 "That doesn't look like a page's HTML. In your browser open the game's page, press Ctrl+U (View source), " +
@@ -117,7 +139,7 @@ public static class SiteReaderTeacher
         domain = pageUri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? pageUri.Host[4..] : pageUri.Host;
 
         using var doc = await GamePageParser.ParseHtmlAsync(html, pageUri, ct).ConfigureAwait(false);
-        return Learn(doc, pageUri, domain, hints ?? new LearnHints());
+        return Learn(doc, pageUri, domain, hints);
     }
 
     // =============================================================================================
@@ -139,9 +161,16 @@ public static class SiteReaderTeacher
         var content = FindContent(doc, out var contentScore);
         var cards = FindCards(doc);
 
+        // What the user pointed at says which kind of page this is.
+        if (hints.HasListPointers && !hints.HasPagePointers && !hints.HasDownloadHints &&
+            hints.Pointers.TryGetValue("listGame", out var gameName) && CardsFromPointer(doc, gameName, notes) is { } pointedCards)
+            cards = pointedCards;
+
         // A game page has a body of text; a list has many cards. A page wins when it has real text.
         var isPage = content is not null && contentScore >= 200;
         var isList = !isPage && cards is not null;
+        if ((hints.HasPagePointers || hints.HasDownloadHints) && !hints.HasListPointers && content is not null) (isPage, isList) = (true, false);
+        else if (hints.HasListPointers && !hints.HasPagePointers && !hints.HasDownloadHints && cards is not null) (isPage, isList) = (false, true);
 
         var learnedOnlyDownloads = false;
         if (isPage) reader.Page = LearnPage(doc, pageUri, content!, hints, fields, notes);
@@ -151,17 +180,36 @@ public static class SiteReaderTeacher
             if (hints.HasDownloadHints)
                 notes.Add("Your download links were left out: this is a list of games. Download links are read from a game's page, so paste one and point at its links.");
         }
-        else if (hints.HasDownloadHints &&
-                 FindHintedDownloads(doc, pageUri, hints, out var onlySample, notes) is { } onlyDownloads)
+        else if (hints.HasDownloadHints || hints.HasPagePointers)
         {
-            // Not recognisable as a whole game page, but the user pointed at the download links: that much can be learned.
-            reader.Page = new PageRecipe { Downloads = onlyDownloads };
-            fields.Add(new LearnedField("page", "downloads", onlyDownloads, onlySample));
-            learnedOnlyDownloads = true;
+            // Not recognisable as a whole game page, but the user pointed at things on it: that much can be learned.
+            var recipe = new PageRecipe();
+            if (hints.HasDownloadHints && FindHintedDownloads(doc, pageUri, hints, out var onlySample, notes) is { } onlyDownloads)
+            {
+                recipe.Downloads = onlyDownloads;
+                fields.Add(new LearnedField("page", "downloads", onlyDownloads, onlySample));
+            }
+            ApplyPagePointers(doc, pageUri, recipe, hints, fields, notes);
+            if (fields.Count > 0)
+            {
+                reader.Page = recipe;
+                learnedOnlyDownloads = true;
+            }
         }
         else
             notes.Add("I couldn't tell what kind of page this is. It needs a game's page (a title and a block of text) " +
                       "or a list of at least four games. Paste a complete page, not a part of it.");
+
+        if (isList && reader.Listing is not null) ApplyListPointers(doc, pageUri, reader.Listing, hints, fields, notes);
+        if (!string.IsNullOrWhiteSpace(hints.PageTwoAddress))
+        {
+            if (PageTemplate(hints.PageTwoAddress, pageUri) is { } template)
+            {
+                reader.BrowseUrl = template;
+                fields.Add(new LearnedField("site", "browseUrl", template, "page 1, 2, 3 … by number"));
+            }
+            else notes.Add($"browseUrl: \"{hints.PageTwoAddress}\" has no page number in it to count up (like …/page/2/ or ?page=2).");
+        }
 
         if (isPage && cards is { Count: >= 8 })
             notes.Add("This page also has a grid of games (probably \"related games\"). Paste the site's own list page to teach it the list.");
@@ -261,6 +309,9 @@ public static class SiteReaderTeacher
             recipe.Trailers = trailerSelector;
             Learned("trailers", trailerSelector, "a video");
         }
+
+        // What the user pointed at wins over the guesses above.
+        ApplyPagePointers(doc, pageUri, recipe, hints, fields, notes);
 
         if (recipe.Title is null && recipe.Description is null) notes.Add("Nothing usable was found on this page.");
         if (recipe.Developer is not null && fields.Any(f => f.Field == "developer" && !f.Selector.Contains("@owntext", StringComparison.Ordinal) && !f.Selector.EndsWith(" a", StringComparison.Ordinal)))
@@ -533,9 +584,9 @@ public static class SiteReaderTeacher
             notes.Add($"downloads: your selector \"{selector}\" doesn't match any link in the pasted page.");
         }
 
-        // 2. Example links.
-        if (hints.DownloadExamples.Count == 0) return null;
-        var anchors = SafeAll(doc, "a[href]");
+        // 2. Example links (by address or the words on the button), and the button's code from View source.
+        if (hints.DownloadExamples.Count == 0 && string.IsNullOrWhiteSpace(hints.DownloadSnippet)) return null;
+        var anchors = SafeAll(doc, Clickables).Where(a => SiteReaderParser.UrlOfElement(a, pageUri) is not null).ToList();
         var chosen = new List<IElement>();
         var missed = new List<string>();
         foreach (var example in hints.DownloadExamples)
@@ -543,6 +594,14 @@ public static class SiteReaderTeacher
             var hits = MatchExample(anchors, example, pageUri);
             if (hits.Count == 0) missed.Add(example);
             else chosen.AddRange(hits.Where(h => !chosen.Contains(h)));
+        }
+        if (!string.IsNullOrWhiteSpace(hints.DownloadSnippet))
+        {
+            var fromCode = FromSnippet(doc, hints.DownloadSnippet!)
+                .Select(e => anchors.Contains(e) ? e : anchors.FirstOrDefault(a => a.Contains(e) || e.Contains(a)))
+                .OfType<IElement>().ToList();
+            if (fromCode.Count == 0) missed.Add("the button's code you pasted");
+            else chosen.AddRange(fromCode.Where(h => !chosen.Contains(h)));
         }
         if (missed.Count > 0)
         {
@@ -559,7 +618,8 @@ public static class SiteReaderTeacher
 
         bool Plausible(IElement a)
         {
-            var href = a.GetAttribute("href") ?? string.Empty;
+            if (chosen.Contains(a)) return true;
+            var href = SiteReaderParser.UrlOfElement(a, pageUri) ?? string.Empty;
             if (href.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase) || href.EndsWith(".torrent", StringComparison.OrdinalIgnoreCase)) return true;
             if (!Uri.TryCreate(pageUri, href, out var url) || url.Scheme is not ("http" or "https")) return false;
             return FileHosts.MatchFileLink(url) is not null || chosenHosts.Contains(url.Host) || chosenTexts.Contains(Clean(a.TextContent)) ||
@@ -570,15 +630,17 @@ public static class SiteReaderTeacher
         var candidates = new List<string>();
         foreach (var anchor in chosen.Take(40))
         {
-            foreach (var cls in GoodClasses(anchor)) candidates.Add($"a.{cls}");
+            var tag = anchor.LocalName;
+            if (anchor.Id is { Length: > 0 and <= 30 } id && CssIdent.IsMatch(id) && !Regex.IsMatch(id, @"\d{3,}")) candidates.Add("#" + id);
+            foreach (var cls in GoodClasses(anchor)) candidates.Add($"{tag}.{cls}");
             var level = 0;
             for (var parent = anchor.ParentElement; parent is not null && level < 4 && parent.LocalName is not ("body" or "html"); parent = parent.ParentElement, level++)
             {
                 foreach (var cls in GoodClasses(parent))
                 {
-                    candidates.Add($".{cls} a");
-                    candidates.Add($".{cls} p a");
-                    candidates.Add($".{cls} li a");
+                    candidates.Add($".{cls} {tag}");
+                    candidates.Add($".{cls} p {tag}");
+                    candidates.Add($".{cls} li {tag}");
                 }
             }
         }
@@ -587,8 +649,10 @@ public static class SiteReaderTeacher
         {
             var ancestor = shared;
             if (!chosen.All(a => ancestor.Contains(a))) continue;
-            if (Locate(doc, ancestor) is { } container) candidates.Add($"{container} a");
+            if (Locate(doc, ancestor) is { } container) candidates.Add($"{container} {chosen[0].LocalName}");
         }
+        // One button: exactly where it is.
+        if (chosen.Count == 1 && Locate(doc, chosen[0]) is { } exact) candidates.Add(exact);
         foreach (var anchor in chosen.Take(40))
         {
             if (!Uri.TryCreate(pageUri, anchor.GetAttribute("href"), out var url) || url.Scheme is not ("http" or "https")) continue;
@@ -611,8 +675,10 @@ public static class SiteReaderTeacher
         if (pool.Count == 0) pool = valid;
         var best = pool.OrderBy(v => v.Count).ThenBy(v => v.Css.Length).Select(v => v.Css).FirstOrDefault();
 
-        // Nothing general fits: the hosts of the links themselves.
-        best ??= string.Join(", ", chosenHosts.Select(h => $"a[href*='{h}']"));
+        // Nothing general fits: the hosts of the links themselves (for plain links), else exactly where the buttons are.
+        best ??= chosen.All(a => a.LocalName == "a" && a.HasAttribute("href"))
+            ? string.Join(", ", chosenHosts.Select(h => $"a[href*='{h}']"))
+            : string.Join(", ", chosen.Select(c => Locate(doc, c)).OfType<string>().Distinct());
         if (best.Length == 0) return null;
 
         var read = SiteReaderParser.Urls(doc, best, pageUri);
@@ -632,18 +698,22 @@ public static class SiteReaderTeacher
                                (wanted.Contains('/') || (wanted.Contains('.') && !wanted.Contains(' ')));
         if (looksLikeAddress)
         {
-            string Full(IElement a) => Uri.TryCreate(pageUri, a.GetAttribute("href"), out var u) ? u.AbsoluteUri : a.GetAttribute("href") ?? string.Empty;
-            var exact = anchors.Where(a => string.Equals(Trimmed(a.GetAttribute("href") ?? string.Empty), Trimmed(wanted), StringComparison.OrdinalIgnoreCase) ||
+            string Raw(IElement a) => a.GetAttribute("href") ?? string.Empty;
+            string Full(IElement a) => SiteReaderParser.UrlOfElement(a, pageUri) ?? Raw(a);
+            var exact = anchors.Where(a => string.Equals(Trimmed(Raw(a)), Trimmed(wanted), StringComparison.OrdinalIgnoreCase) ||
                                            string.Equals(Trimmed(Full(a)), Trimmed(wanted), StringComparison.OrdinalIgnoreCase)).ToList();
             if (exact.Count > 0) return exact;
-            return anchors.Where(a => (a.GetAttribute("href") ?? string.Empty).Contains(wanted, StringComparison.OrdinalIgnoreCase) ||
+            return anchors.Where(a => Raw(a).Contains(wanted, StringComparison.OrdinalIgnoreCase) ||
                                       Full(a).Contains(wanted, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
-        var sameText = anchors.Where(a => string.Equals(Clean(a.TextContent), wanted, StringComparison.OrdinalIgnoreCase)).ToList();
+        // The words on the button: its text, or a button's value / title.
+        static string Words(IElement a) =>
+            Clean(a.TextContent) is { Length: > 0 } text ? text : Clean(a.GetAttribute("value") ?? a.GetAttribute("title") ?? a.GetAttribute("aria-label"));
+        var sameText = anchors.Where(a => string.Equals(Words(a), wanted, StringComparison.OrdinalIgnoreCase)).ToList();
         return sameText.Count > 0
             ? sameText
-            : anchors.Where(a => Clean(a.TextContent).Contains(wanted, StringComparison.OrdinalIgnoreCase)).ToList();
+            : anchors.Where(a => Words(a).Contains(wanted, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
     /// <summary>"6 links: pixeldrain.com/u/abc, gofile.io/d/xyz …" — what a selector reads, short enough to check at a glance.</summary>
@@ -670,6 +740,248 @@ public static class SiteReaderTeacher
             if (block.LocalName is "p" or "li" or "td" or "tr") return false;
         }
         return false;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Things the user pointed at (words on the page, a piece of View source, or a CSS selector)
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>Anything a download can be: a link, a button (its own address, its "onclick", or the form it sends), a form.</summary>
+    private const string Clickables =
+        "a[href], a[data-href], a[data-url], button, input[type='submit'], input[type='button'], [onclick], [data-href], [data-url], [data-download], form[action]";
+
+    /// <summary>
+    /// The elements one pointer means: a CSS selector that matches, a piece of the page's code (matched by its id, address,
+    /// classes and words), an address, or the words shown on the page (the smallest element holding exactly them).
+    /// </summary>
+    internal static List<IElement> FindPointed(IDocument doc, string pointer)
+    {
+        var wanted = pointer.Trim();
+        if (wanted.Length == 0) return [];
+        if (wanted.Contains('<')) return FromSnippet(doc, wanted);
+
+        // A CSS selector ("h1.title", ".dev a", "#download"): used when it matches something.
+        if (!wanted.Contains(' ') || Regex.IsMatch(wanted, @"^[.#\[]|[>\[\]:]"))
+        {
+            var bySelector = SafeAll(doc, wanted);
+            if (bySelector.Count is > 0 and <= 300 && (Regex.IsMatch(wanted, @"^[.#\[]|[.#\[\]>:]") || bySelector.Count <= 3)) return bySelector;
+        }
+
+        // An address: the element that links to it or shows it.
+        if (wanted.Contains("://", StringComparison.Ordinal) || wanted.StartsWith('/'))
+        {
+            var byAddress = SafeAll(doc, "[href], [src], [content], [action], [data-src], [data-href]")
+                .Where(e => new[] { "href", "src", "content", "action", "data-src", "data-href" }
+                    .Any(a => e.GetAttribute(a) is { } v && v.Contains(wanted.TrimEnd('/'), StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            if (byAddress.Count > 0) return byAddress;
+        }
+
+        // Words on the page: the deepest element holding exactly them; else its alt / title / value; else the shortest that
+        // contains them.
+        var clean = Clean(wanted);
+        var all = SafeAll(doc, "body *").Where(e => e.LocalName is not ("script" or "style" or "noscript")).ToList();
+        var exact = all.Where(e => string.Equals(Clean(e.TextContent), clean, StringComparison.OrdinalIgnoreCase)).ToList();
+        exact = exact.Where(e => !exact.Any(other => !ReferenceEquals(other, e) && e.Contains(other))).ToList();
+        if (exact.Count > 0) return exact;
+        var byAttribute = all.Where(e => new[] { "alt", "title", "value", "aria-label" }
+            .Any(a => string.Equals(Clean(e.GetAttribute(a)), clean, StringComparison.OrdinalIgnoreCase))).ToList();
+        if (byAttribute.Count > 0) return byAttribute;
+        var containing = all.Where(e => Clean(e.TextContent).Contains(clean, StringComparison.OrdinalIgnoreCase) && Clean(e.TextContent).Length <= clean.Length + 60)
+            .ToList();
+        return containing.Where(e => !containing.Any(other => !ReferenceEquals(other, e) && e.Contains(other))).Take(5).ToList();
+    }
+
+    /// <summary>
+    /// The page's element(s) a piece of its code means (copied from View source): the same tag, scored by its id, its
+    /// addresses and other attributes, its classes and its words. Only the best-scoring ones.
+    /// </summary>
+    private static List<IElement> FromSnippet(IDocument doc, string snippet)
+    {
+        List<IElement> parsed;
+        try
+        {
+            var parser = new AngleSharp.Html.Parser.HtmlParser();
+            var context = doc.Body ?? doc.DocumentElement;
+            parsed = parser.ParseFragment(snippet, context).OfType<IElement>()
+                .SelectMany(e => new[] { e }.Concat(e.QuerySelectorAll("*"))).ToList();
+        }
+        catch (Exception)
+        {
+            return [];
+        }
+        if (parsed.Count == 0) return [];
+
+        // The part of the snippet that matters: the element with an address (a link, a button's form), else the first one.
+        var model = parsed.FirstOrDefault(e => e.HasAttribute("href") || e.HasAttribute("action") || e.HasAttribute("onclick") || e.HasAttribute("data-href"))
+                    ?? parsed.FirstOrDefault(e => e.Id is { Length: > 0 } || e.ClassList.Length > 0)
+                    ?? parsed[0];
+        var words = Clean(model.TextContent);
+        var classes = model.ClassList.ToHashSet(StringComparer.Ordinal);
+
+        var scored = new List<(IElement Element, int Score)>();
+        foreach (var element in SafeAll(doc, model.LocalName))
+        {
+            var score = 0;
+            if (model.Id is { Length: > 0 } id && element.Id == id) score += 10;
+            foreach (var attribute in model.Attributes)
+            {
+                if (attribute.Name is "class" or "style" or "id") continue;
+                if (element.GetAttribute(attribute.Name) is { } value && value == attribute.Value)
+                    score += attribute.Name is "href" or "src" or "action" or "onclick" or "data-href" or "data-url" or "name" ? 5 : 2;
+            }
+            score += element.ClassList.Count(classes.Contains) * 2;
+            if (words.Length > 0 && string.Equals(Clean(element.TextContent), words, StringComparison.OrdinalIgnoreCase)) score += 3;
+            if (score >= 2) scored.Add((element, score));
+        }
+        if (scored.Count == 0) return [];
+        var top = scored.Max(x => x.Score);
+        return scored.Where(x => x.Score == top).Select(x => x.Element).ToList();
+    }
+
+    /// <summary>Puts what the user pointed at on a game's page into the recipe, over the teacher's own guesses.</summary>
+    private static void ApplyPagePointers(IDocument doc, Uri pageUri, PageRecipe recipe, LearnHints hints, List<LearnedField> fields, List<string> notes)
+    {
+        foreach (var (field, pointer) in hints.Pointers)
+        {
+            if (string.IsNullOrWhiteSpace(pointer) || !LearnHints.PageFields.Contains(field, StringComparer.OrdinalIgnoreCase)) continue;
+            var key = LearnHints.PageFields.First(f => f.Equals(field, StringComparison.OrdinalIgnoreCase));
+            var element = FindPointed(doc, pointer).FirstOrDefault();
+            if (element is null)
+            {
+                notes.Add($"{key}: \"{Shorten(pointer.Trim(), 60)}\" isn't in the pasted page, so my own guess is kept.");
+                continue;
+            }
+
+            string? spec;
+            string? sample;
+            if (key == "cover")
+            {
+                var picture = element.LocalName is "img" or "meta" ? element : element.QuerySelector("img") ?? element;
+                spec = Locate(doc, picture);
+                sample = spec is null ? null : SiteReaderParser.Url(doc, spec, pageUri);
+            }
+            else if (key == "genres")
+            {
+                var holder = element.QuerySelector("a") is not null ? element : element.ParentElement?.QuerySelector("a") is not null && Clean(element.ParentElement.TextContent).Length < 200 ? element.ParentElement : element;
+                spec = Locate(doc, holder) is { } at ? (holder.QuerySelector("a") is not null ? at + " a" : at) : null;
+                sample = spec is null ? null : string.Join(", ", SiteReaderParser.Texts(doc, spec).Take(4));
+            }
+            else if (key == "description")
+            {
+                // Words from the description: the block that holds them.
+                var block = element.Closest("article, section, div, td") ?? element;
+                spec = Locate(doc, block);
+                sample = spec is null ? null : Shorten(Clean(block.TextContent), 90);
+            }
+            else
+            {
+                spec = Locate(doc, element) is { } at ? WithOwnText(element, at) : null;
+                sample = spec is null ? null : SiteReaderParser.Text(doc, spec);
+            }
+
+            if (spec is null || string.IsNullOrWhiteSpace(sample))
+            {
+                notes.Add($"{key}: found \"{Shorten(pointer.Trim(), 60)}\" but couldn't make a selector that reads it.");
+                continue;
+            }
+            switch (key)
+            {
+                case "title": recipe.Title = spec; break;
+                case "cover": recipe.Cover = spec; break;
+                case "description": recipe.Description = spec; break;
+                default: SetPageField(recipe, key, spec); break;
+            }
+            fields.RemoveAll(f => f.Area == "page" && f.Field == key);
+            fields.Add(new LearnedField("page", key, spec, sample + "  (as you pointed)"));
+        }
+    }
+
+    /// <summary>Puts what the user pointed at on a list into the recipe: one game's name, and the next-page button.</summary>
+    private static void ApplyListPointers(IDocument doc, Uri pageUri, ListingRecipe recipe, LearnHints hints, List<LearnedField> fields, List<string> notes)
+    {
+        if (hints.Pointers.TryGetValue("listGame", out var game) && !string.IsNullOrWhiteSpace(game))
+        {
+            var element = FindPointed(doc, game).FirstOrDefault(e => SafeAll(doc, recipe.Item).Any(card => card.Contains(e)));
+            var card = element is null ? null : SafeAll(doc, recipe.Item).FirstOrDefault(c => c.Contains(element));
+            if (element is not null && card is not null && Locate(card, element, 3) is { } inCard)
+            {
+                recipe.Title = WithOwnText(element, inCard);
+                fields.RemoveAll(f => f.Area == "list" && f.Field == "title");
+                fields.Add(new LearnedField("list", "title", recipe.Title, SiteReaderParser.Text(card, recipe.Title) + "  (as you pointed)"));
+            }
+            else notes.Add($"list title: \"{Shorten(game.Trim(), 60)}\" isn't inside a game of the list.");
+        }
+
+        if (hints.Pointers.TryGetValue("nextPage", out var next) && !string.IsNullOrWhiteSpace(next))
+        {
+            var button = FindPointed(doc, next).Select(e => e.LocalName == "a" ? e : e.Closest("a") ?? e.QuerySelector("a")).OfType<IElement>().FirstOrDefault();
+            if (button is not null && Locate(doc, button) is { } selector && SiteReaderParser.Url(doc, selector, pageUri) is { } nextUrl)
+            {
+                recipe.NextPage = selector;
+                fields.RemoveAll(f => f.Area == "list" && f.Field == "nextPage");
+                fields.Add(new LearnedField("list", "nextPage", selector, nextUrl + "  (as you pointed)"));
+                notes.RemoveAll(n => n.StartsWith("nextPage:", StringComparison.Ordinal));
+            }
+            else notes.Add($"nextPage: \"{Shorten(next.Trim(), 60)}\" isn't a link in the pasted page. Type the second page's address instead.");
+        }
+    }
+
+    /// <summary>A list's games found from one game's name: the repeated block around it (its card).</summary>
+    private static Cards? CardsFromPointer(IDocument doc, string pointer, List<string> notes)
+    {
+        foreach (var element in FindPointed(doc, pointer))
+        {
+            for (var card = element; card.ParentElement is { } parent && card.LocalName is not ("body" or "html"); card = parent)
+            {
+                var signature = card.LocalName + "." + string.Join('.', GoodClasses(card).OrderBy(c => c, StringComparer.Ordinal));
+                var siblings = parent.Children.Where(c => c.LocalName + "." + string.Join('.', GoodClasses(c).OrderBy(x => x, StringComparer.Ordinal)) == signature).ToList();
+                if (siblings.Count < 3) continue;
+
+                var classes = GoodClasses(card).ToList();
+                string? item = null;
+                foreach (var candidate in classes.Count > 0 ? new[] { $"{card.LocalName}.{classes[0]}", $".{classes[0]}" } : Array.Empty<string>())
+                {
+                    var count = SafeAll(doc, candidate).Count;
+                    if (count >= siblings.Count && count <= siblings.Count * 2) { item = candidate; break; }
+                }
+                if (item is null && Locate(doc, parent) is { } parentSelector) item = $"{parentSelector} > {card.LocalName}";
+                if (item is not null) return new Cards(item, card, siblings.Count);
+            }
+        }
+        notes.Add($"list: couldn't find a repeated game block around \"{Shorten(pointer.Trim(), 60)}\".");
+        return null;
+    }
+
+    /// <summary>The second page's address → every page's ("…/page/2/" → "…/page/{page}/"), made complete with the site.</summary>
+    internal static string? PageTemplate(string pageTwo, Uri? pageUri)
+    {
+        var text = pageTwo.Trim();
+        if (!text.Contains("://", StringComparison.Ordinal))
+            text = text.StartsWith('/') && pageUri is not null ? new Uri(pageUri, text).AbsoluteUri : "https://" + text.TrimStart('/');
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri)) return null;
+        var full = uri.AbsoluteUri;
+        if (BrowseTemplate(full) is { } template) return template;
+        // "…/games/2", "…-p2.html", "?pg=2": the last 2 in the address.
+        var start = full.IndexOf(uri.PathAndQuery, StringComparison.Ordinal); // never the 2 in a domain ("example2.com")
+        if (start < 0) return null;
+        var match = Regex.Match(full[start..], @"(?<![0-9])2(?![0-9])(?!.*(?<![0-9])2(?![0-9]))");
+        if (!match.Success) return null;
+        var at = start + match.Index;
+        return full[..at] + "{page}" + full[(at + 1)..];
+    }
+
+    /// <summary>Only the second page's address was given (no page pasted): a reader that reads the list page by page.</summary>
+    private static SiteReaderLesson PagesOnly(string pageTwo, string? address)
+    {
+        var template = PageTemplate(pageTwo, null) ?? throw new ArgumentException(
+            "That address has no page number to count up. Type the list's second page, like example.com/games/page/2/.");
+        var host = new Uri(template.Replace("{page}", "1", StringComparison.Ordinal)).Host;
+        var domain = host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? host[4..] : host;
+        var reader = new SiteReader { Name = domain, Domains = [domain], BrowseUrl = template };
+        var fields = new List<LearnedField> { new("site", "browseUrl", template, "page 1, 2, 3 … by number") };
+        var notes = new List<string> { "Saved the page addresses. Paste the list page's HTML too, so it knows where the games are on each page." };
+        return new SiteReaderLesson(reader, fields, notes, false, true);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -930,6 +1242,7 @@ public static class SiteReaderTeacher
     /// <summary>Puts what was learned on top of an existing reader: learned selectors replace the same fields, the rest stay.</summary>
     public static SiteReader Merge(SiteReader existing, SiteReader learned)
     {
+        if (!string.IsNullOrWhiteSpace(learned.BrowseUrl)) existing.BrowseUrl = learned.BrowseUrl;
         existing.Page = Combine(existing.Page, learned.Page);
         existing.Listing = Combine(existing.Listing, learned.Listing);
         return existing;

@@ -37,7 +37,11 @@ public sealed class EventChatService
         _transport.FrameReceived += (_, frame) => OnFrame(frame);
         _friends.ConnectionChanged += (_, _) =>
         {
-            if (_friends.ConnectionState == SocialConnectionState.Connected && Room is not null) _ = SendJoinAsync();
+            if (_friends.ConnectionState == SocialConnectionState.Connected)
+            {
+                RelayTooOld = false; // reconnected: maybe to an updated relay (a redeploy drops every connection), so try again
+                if (Room is not null) _ = SendJoinAsync();
+            }
             StateChanged?.Invoke(this, EventArgs.Empty);
         };
     }

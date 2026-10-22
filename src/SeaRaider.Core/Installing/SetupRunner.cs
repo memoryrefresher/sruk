@@ -99,6 +99,7 @@ public static class SetupRunner
         var lastOptions = Stopwatch.StartNew();
         var lastMusic = Stopwatch.StartNew();
         var handledOptions = new HashSet<IntPtr>();
+        var handledComponents = new HashSet<(IntPtr List, int Item)>();
         var isSetupProcess = SilentInstallManager.SetupProcessMatcher(request.FileName, request.WorkingDirectory);
         var musicButton = request.MuteAudio ? new SetupMusicToggle(isSetupProcess, Log) : null;
 
@@ -144,12 +145,19 @@ public static class SetupRunner
                 }
             }
 
-            if (request.UncheckLowRam && lastOptions.Elapsed >= TimeSpan.FromMilliseconds(150))
+            var optionsDue = lastOptions.Elapsed >= TimeSpan.FromMilliseconds(150);
+            if (request.UncheckLowRam && optionsDue)
             {
-                lastOptions.Restart();
                 try { SetupOptionTweaker.UncheckLowRam(tree, handledOptions, Log); }
                 catch (Exception ex) { Log($"Low-RAM option: {ex.Message}"); } // a courtesy; never stops the setup
             }
+            // The setup's own runtime installers (C++ redists, DirectX, .NET) on its components page: SeaRaider handles them.
+            if (request.Runtimes != SetupRuntimes.ShowInstallers && optionsDue)
+            {
+                try { SetupComponentTweaker.UncheckRuntimes(tree, handledComponents, Log); }
+                catch (Exception ex) { Log($"Runtime components: {ex.Message}"); }
+            }
+            if (optionsDue) lastOptions.Restart();
 
             // The setup's own speaker button too: the mixer mute alone doesn't hold for every setup.
             if (musicButton is not null && lastMusic.Elapsed >= TimeSpan.FromMilliseconds(80))

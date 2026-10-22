@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:services="using:SeaRaider.App.Services"
              xmlns:vm="using:SeaRaider.App.ViewModels"
              xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
              xmlns:views="using:SeaRaider.App.Views"
@@ -134,6 +135,10 @@
           <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" IsVisible="{Binding IsSearching}" />
           <TextBlock Classes="muted small" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="760" Text="{Binding SearchStatus}" />
         </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasReleaseLookupText}">
+          <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" />
+          <TextBlock Classes="muted small" Text="{Binding ReleaseLookupText}" />
+        </StackPanel>
         <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsCrawling}">
           <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" />
           <TextBlock Classes="muted small" Text="{Binding CrawlText}" />
@@ -193,7 +198,7 @@
             </Button>
             <Button Classes="link" Content="Refresh" Command="{Binding Upcoming.RefreshCommand}"
                     IsVisible="{Binding Upcoming.HasSources}" ToolTip.Tip="Read your upcoming sites again" />
-            <Button Classes="link" Content="Upcoming sites" Command="{Binding Upcoming.OpenSourcesCommand}" />
+            <Button Classes="link" Content="Upcoming sites" Command="{Binding Upcoming.OpenSourcesCommand}" IsVisible="{Binding IsAdvanced, Source={x:Static services:UiMode.Current}}" />
           </StackPanel>
         </Grid>
 
@@ -244,7 +249,6 @@
                       </views:AspectRatioBox>
                       <StackPanel Margin="14,10,14,14" Spacing="3">
                         <TextBlock Classes="h2" FontSize="16" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Classes="muted small" Text="{Binding SourceText}" TextTrimming="CharacterEllipsis" />
                       </StackPanel>
                     </StackPanel>
                     <Button Classes="wish-heart" Classes.on="{Binding IsWishlisted}" Margin="10"

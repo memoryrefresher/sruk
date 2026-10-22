@@ -78,6 +78,11 @@ public sealed partial class GamePageParser(ILogger<GamePageParser> logger)
                 .OfType<IElement>();
         }
 
+        // A section listing whose entries live under it (".../files/gba" → ".../files/gba/lost-marbles"): those links are the
+        // entries, whatever the theme's markup (no <article> cards needed).
+        if (string.IsNullOrWhiteSpace(profile.ItemLinkSelector) && ChildLinks(doc, pageUri) is { Count: >= 3 } children)
+            return children;
+
         var result = new List<Uri>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { pageUri.AbsoluteUri };
         foreach (var anchor in anchors)
@@ -89,6 +94,40 @@ public sealed partial class GamePageParser(ILogger<GamePageParser> logger)
             if (seen.Add(normalized.AbsoluteUri)) result.Add(normalized);
         }
         return result;
+    }
+
+    /// <summary>Same-site links exactly one level below the listing's own address (its /page/N part ignored).</summary>
+    internal static List<Uri> ChildLinks(IDocument doc, Uri pageUri)
+    {
+        var result = new List<Uri>();
+        if (SectionOf(pageUri) is not { } section) return result;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var anchor in doc.QuerySelectorAll("a[href]"))
+        {
+            if (Resolve(anchor.GetAttribute("href"), pageUri) is not { } uri) continue;
+            if (!UrlRules.SameSite(uri, pageUri) || UrlRules.IsNonContentPath(uri) || !IsChildPath(uri, section)) continue;
+            var normalized = UrlRules.Normalize(uri);
+            if (seen.Add(normalized.AbsoluteUri)) result.Add(normalized);
+        }
+        return result;
+    }
+
+    /// <summary>True when <paramref name="link"/> is one level below the listing <paramref name="listing"/> (".../files/gba/x").</summary>
+    public static bool IsChildOf(Uri link, Uri listing) =>
+        UrlRules.SameSite(link, listing) && SectionOf(listing) is { } section && IsChildPath(link, section);
+
+    private static string? SectionOf(Uri listing)
+    {
+        var path = Regex.Replace(listing.AbsolutePath, @"/page/\d+/?$", string.Empty, RegexOptions.IgnoreCase).Trim('/');
+        return path.Length == 0 ? null : path.ToLowerInvariant(); // the home page has no section
+    }
+
+    private static bool IsChildPath(Uri link, string section)
+    {
+        var path = link.AbsolutePath.Trim('/').ToLowerInvariant();
+        if (!path.StartsWith(section + "/", StringComparison.Ordinal)) return false;
+        var rest = path[(section.Length + 1)..];
+        return rest.Length > 0 && !rest.Contains('/') && rest != "page" && rest != "feed";
     }
 
     /// <summary>
@@ -353,6 +392,14 @@ public sealed partial class GamePageParser(ILogger<GamePageParser> logger)
         var genres = meta.Genres.Count > 0 ? meta.Genres : (ld?.Genres ?? new List<string>()).Take(8).ToList();
         var bodyText = root.TextContent;
         var releaseText = FirstNonEmpty(meta.ReleaseDateText, ld?.DatePublished, MatchLabeled(ReleaseDateRegex(), bodyText)).NullIfEmpty();
+        var releaseUtc = meta.ReleaseDateUtc ?? MetadataParser.ParseDate(releaseText);
+        // Only a "Release date:" line on the page is trusted as is. A guess (the page's datePublished, "released" in the text)
+        // that falls on the day the post went up is the post's own date, not the game's.
+        if (meta.ReleaseDateText is null && !ReleaseDates.IsReal(releaseUtc, meta.UploadedAtUtc, fromSteam: false))
+        {
+            releaseText = null;
+            releaseUtc = null;
+        }
         var repackSize = meta.RepackSize;
         var originalSize = meta.OriginalSize ?? MetadataParser.NormalizeSize(MatchLabeled(SizeRegex(), bodyText));
 
@@ -374,7 +421,7 @@ public sealed partial class GamePageParser(ILogger<GamePageParser> logger)
             Developer = FirstNonEmpty(meta.Developer, ld?.Creator, MatchLabeled(DeveloperRegex(), bodyText)).NullIfEmpty(),
             Publisher = meta.Publisher,
             ReleaseDate = releaseText,
-            ReleaseDateUtc = meta.ReleaseDateUtc ?? MetadataParser.ParseDate(releaseText),
+            ReleaseDateUtc = releaseUtc,
             UploadedAtUtc = meta.UploadedAtUtc,
             Version = meta.Version,
             DlcInfo = meta.DlcInfo,

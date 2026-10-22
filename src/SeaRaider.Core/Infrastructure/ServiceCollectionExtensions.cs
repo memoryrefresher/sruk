@@ -119,6 +119,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<MediaScraperService>();
         services.AddSingleton<WallpaperSearch>();
         services.AddSingleton<ArtworkService>();
+        services.AddSingleton<ReleaseDateService>(); // real release dates (Steam) for games whose page gives none
 
         // Store "Coming soon" shelf (user-added upcoming sites) and the wishlist.
         services.AddSingleton<UpcomingService>();

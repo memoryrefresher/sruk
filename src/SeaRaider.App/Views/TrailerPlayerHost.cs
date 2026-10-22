@@ -169,6 +169,9 @@ public sealed class TrailerPlayerHost : NativeControlHost
             };
 
             _player.SyncRequested += OnSyncRequested;
+            // The video sometimes keeps the size it had while the overlay was still opening (drawn small in the corner
+            // until something resizes it): once the page has loaded, nudge the browser's size so it lays out again.
+            core.NavigationCompleted += (_, _) => RelayoutSoon();
             Navigate();
             controller.MoveFocus(CoreWebView2MoveFocusReason.Programmatic);
         }
@@ -237,9 +240,44 @@ public sealed class TrailerPlayerHost : NativeControlHost
     {
         if (_controller is null) return;
         var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-        _controller.Bounds = new System.Drawing.Rectangle(0, 0,
-            Math.Max(1, (int)Math.Ceiling(Bounds.Width * scale)),
-            Math.Max(1, (int)Math.Ceiling(Bounds.Height * scale)));
+        try
+        {
+            _controller.Bounds = new System.Drawing.Rectangle(0, 0,
+                Math.Max(1, (int)Math.Ceiling(Bounds.Width * scale)),
+                Math.Max(1, (int)Math.Ceiling(Bounds.Height * scale)));
+            _controller.NotifyParentWindowPositionChanged(); // the window moved or resized too: the video layer follows
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            // closing
+        }
+    }
+
+    /// <summary>
+    /// Shrinks the browser by a pixel and back a moment later, a few times while the video starts: the page (and the video's
+    /// own drawing layer) lays out again at the full size of the box.
+    /// </summary>
+    private void RelayoutSoon()
+    {
+        foreach (var ms in new[] { 150, 600, 1500, 3000 })
+        {
+            DispatcherTimer.RunOnce(() =>
+            {
+                if (_controller is null || _destroyed) return;
+                var scale = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+                var width = Math.Max(2, (int)Math.Ceiling(Bounds.Width * scale));
+                var height = Math.Max(2, (int)Math.Ceiling(Bounds.Height * scale));
+                try
+                {
+                    _controller.Bounds = new System.Drawing.Rectangle(0, 0, width - 1, height);
+                    DispatcherTimer.RunOnce(UpdateBrowserBounds, TimeSpan.FromMilliseconds(40));
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or System.Runtime.InteropServices.COMException)
+                {
+                    // closing
+                }
+            }, TimeSpan.FromMilliseconds(ms));
+        }
     }
 
     private void CloseBrowser()

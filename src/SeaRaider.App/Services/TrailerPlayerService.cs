@@ -54,6 +54,7 @@ public sealed partial class TrailerPlayerService : ObservableObject
         this.media = media;
         this.repository = repository;
         repository.SettingsChanged += (_, settings) => Avalonia.Threading.Dispatcher.UIThread.Post(() => UpdateBetSlip(settings));
+        UiMode.Current.PropertyChanged += (_, _) => OnPropertyChanged(nameof(ShowBetSlipButton));
         UpdateBetSlip(repository.GetSettings());
     }
 
@@ -78,6 +79,11 @@ public sealed partial class TrailerPlayerService : ObservableObject
 
     /// <summary>Switched on in Settings: the player shows its "Bet slip" button.</summary>
     [ObservableProperty] private bool _isBetSlipAvailable;
+
+    /// <summary>The player's "Bet slip" button: once it's switched on, or with advanced options (where it can be switched on).</summary>
+    public bool ShowBetSlipButton => IsBetSlipAvailable || UiMode.Current.IsAdvanced;
+
+    partial void OnIsBetSlipAvailableChanged(bool value) => OnPropertyChanged(nameof(ShowBetSlipButton));
 
     /// <summary>The bet slip panel is showing beside the video.</summary>
     [ObservableProperty] private bool _isBetSlipOpen;
@@ -547,6 +553,15 @@ public sealed partial class TrailerPlayerService : ObservableObject
           const youtube = id => frameOf('https://www.youtube.com/embed/' + encodeURIComponent(id) + '?autoplay=1&rel=0&playsinline=1&modestbranding=1' + (p.quality === 'saver' ? '' : '&vq=hd1080')
             + '&enablejsapi=1&origin=' + encodeURIComponent(location.origin)
             + (p.start > 0 ? '&start=' + Math.floor(p.start) : ''), 'youtube');
+          // The video's own drawing layer can keep the size it had while the player was opening (small, in a corner):
+          // whenever the page or the video changes size, lay it out again at the full size of the box.
+          const relayout = () => {
+            v.style.width = 'calc(100% - 1px)';
+            requestAnimationFrame(() => requestAnimationFrame(() => { v.style.width = '100%'; }));
+          };
+          window.addEventListener('resize', relayout);
+          ['loadedmetadata', 'playing', 'resize'].forEach(e => v.addEventListener(e, relayout));
+          [300, 1000, 2500].forEach(ms => setTimeout(relayout, ms));
           // Video files and Steam streams: jump to the shared time once the video knows its length.
           if (p.start > 0) v.addEventListener('loadedmetadata', () => { try { v.currentTime = p.start; } catch (e) {} }, { once: true });
           const frameOf = (src, kind) => {

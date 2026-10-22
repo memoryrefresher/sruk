@@ -279,13 +279,30 @@ public sealed class DownloadAndExtractManager(
         return Task.CompletedTask;
     }
 
-    public Task ResumeAsync(Guid jobId)
+    public Task ResumeAsync(Guid jobId) => ResumeAsync(jobId, automatic: false);
+
+    /// <summary>Automatic restarts after a dropped connection, before the download waits for Retry.</summary>
+    private const int MaxAutoRetries = 3;
+
+    /// <summary>A failure that another try is likely to get past: the connection, a timeout, the host being busy.</summary>
+    private static bool IsWorthAutoRetry(Exception ex) => ex switch
+    {
+        DeadLinkException or NoWorkingSourceException or BrowserRequiredException or StreamingExtractionException => false,
+        InvalidDataException or UnauthorizedAccessException => false,
+        IOException io when io.HResult is unchecked((int)0x80070070) or unchecked((int)0x80070027) => false, // disk full
+        HttpRequestException { StatusCode: { } code } => (int)code >= 500 || code is HttpStatusCode.TooManyRequests or HttpStatusCode.RequestTimeout,
+        HttpRequestException or IOException or TimeoutException or TaskCanceledException => true,
+        _ => false,
+    };
+
+    private Task ResumeAsync(Guid jobId, bool automatic)
     {
         if (!_jobs.TryGetValue(jobId, out var job)) return Task.CompletedTask;
 
         lock (_gate)
         {
             if (job.Status is not (DownloadJobStatus.Paused or DownloadJobStatus.Failed)) return Task.CompletedTask;
+            if (!automatic) job.AutoRetries = 0; // Retry by hand: a fresh set of automatic tries
             job.Error = null;
             SetStatus(job, DownloadJobStatus.Queued, "Queued");
             UpdateInstall(job, GameInstallState.Queued);
@@ -679,7 +696,7 @@ public sealed class DownloadAndExtractManager(
                 if (rom is not null)
                 {
                     var hasEmulator = settings.Emulators.Any(e => string.Equals(e.SystemId, rom.System.Id, StringComparison.OrdinalIgnoreCase) && File.Exists(e.ExePath)) ||
-                                      (rom.System.RetroArchCore is not null && Emulation.RetroArch.Locate(settings) is not null); // RetroArch plays it
+                                      rom.System.RetroArchCore is not null; // RetroArch plays it (downloaded on first Play if needed)
                     completionMessage = hasEmulator
                         ? $"Installed ({rom.System.Name}), press Play"
                         : $"Installed ({rom.System.Name}). Install RetroArch or set up an emulator in Settings › Emulators to play it";
@@ -704,6 +721,7 @@ public sealed class DownloadAndExtractManager(
 
             job.CompletedAtUtc = DateTime.UtcNow;
             job.BytesPerSecond = 0;
+            job.AutoRetries = 0;
             SetStatus(job, DownloadJobStatus.Completed, completionMessage);
             logger.LogInformation("{Title}: {Message} ({Dir})", job.GameTitle, completionMessage, job.TargetDirectory);
 
@@ -764,6 +782,25 @@ public sealed class DownloadAndExtractManager(
 
             job.Error = Describe(ex);
             job.BytesPerSecond = 0;
+
+            // The connection gave out even after the downloader's own retries: start again by itself (what's downloaded is
+            // kept, so it continues where it stopped) 4 seconds later, a few times, before asking for Retry.
+            if (IsWorthAutoRetry(ex) && job.AutoRetries < MaxAutoRetries)
+            {
+                job.AutoRetries++;
+                var wait = TimeSpan.FromSeconds(4);
+                var error = job.Error = $"{job.Error} Trying again in {wait.TotalSeconds:0}s ({job.AutoRetries}/{MaxAutoRetries})…";
+                SetStatus(job, DownloadJobStatus.Failed, error);
+                var jobId = job.Id;
+                _ = Task.Delay(wait).ContinueWith(_ =>
+                {
+                    // Only if nothing happened meanwhile (not retried, removed or cancelled by hand).
+                    if (_jobs.TryGetValue(jobId, out var again) && again.Status == DownloadJobStatus.Failed && again.Error == error)
+                        _ = ResumeAsync(jobId, automatic: true);
+                }, TaskScheduler.Default);
+                return;
+            }
+
             SetStatus(job, DownloadJobStatus.Failed, job.Error);
 
             var install = repository.GetInstall(job.GameId);
@@ -879,6 +916,21 @@ public sealed class DownloadAndExtractManager(
         return paths;
     }
 
+    /// <summary>Fresh links asked for when a host's file link stops working mid-download (per part, per run).</summary>
+    private const int MaxLinkRefreshes = 6;
+
+    /// <summary>How the end of a host's one-time file link looks: refused, gone, or the connection dropped.</summary>
+    private static bool IsExpiredLink(Exception ex) => ex switch
+    {
+        DeadLinkException => true, // 404 / 410 on the file link (the host's page still has the file)
+        InvalidDataException => true, // a page instead of the file: the link led back to the host's page
+        HttpRequestException { StatusCode: null } => true,
+        HttpRequestException { StatusCode: { } code } => code is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.Gone
+            or HttpStatusCode.NotFound or HttpStatusCode.TooManyRequests || (int)code >= 500,
+        IOException or TimeoutException or TaskCanceledException => true,
+        _ => false,
+    };
+
     /// <summary>
     /// One file, from the first source that still has it: the chosen host, then the same file on the other hosts.
     /// </summary>
@@ -941,23 +993,43 @@ public sealed class DownloadAndExtractManager(
         {
             try
             {
-                var target = source;
-                if (host is { Access: HostAccess.Resolvable })
+                // A host's file link is made for one download and expires (often within minutes, or after the connection
+                // drops): when the download breaks off, a fresh link is asked for and the part resumes where it stopped —
+                // what pressing Retry used to do by hand.
+                for (var refresh = 0; ; refresh++)
                 {
-                    job.StatusDetail = $"{partLabel}: getting the file link from {name}…";
-                    Publish(job, force: true);
-                    var resolved = await hostResolver.ResolveAsync(source, ct).ConfigureAwait(false);
-                    if (resolved is null && browser) throw new BrowserRequiredException($"{name} didn't give SeaRaider a file link.");
-                    if (resolved is not null)
+                    var target = source;
+                    var downloading = false;
+                    try
                     {
-                        target = resolved.FileUrl;
-                        saveAs ??= resolved.FileName;
+                        if (host is { Access: HostAccess.Resolvable })
+                        {
+                            job.StatusDetail = refresh == 0
+                                ? $"{partLabel}: getting the file link from {name}…"
+                                : $"{partLabel}: the link from {name} expired, getting a fresh one ({refresh}/{MaxLinkRefreshes})…";
+                            Publish(job, force: true);
+                            var resolved = await hostResolver.ResolveAsync(source, ct).ConfigureAwait(false);
+                            if (resolved is null && browser) throw new BrowserRequiredException($"{name} didn't give SeaRaider a file link.");
+                            if (resolved is not null)
+                            {
+                                target = resolved.FileUrl;
+                                saveAs ??= resolved.FileName;
+                            }
+                        }
+
+                        // Without the built-in browser, the old verification window is the only way past a captcha.
+                        var options = new HttpDownloadOptions(referer, AllowVerification: !browser);
+                        downloading = true;
+                        return await httpDownloader.DownloadAsync(target, job.TempDirectory, saveAs, progress, ct, options).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (downloading && host is { Access: HostAccess.Resolvable } && target != source &&
+                                               refresh < MaxLinkRefreshes && !ct.IsCancellationRequested && IsExpiredLink(ex))
+                    {
+                        logger.LogInformation("{Title} {Part}: {Host} link stopped working ({Reason}); asking for a fresh one",
+                            job.GameTitle, partLabel, name, ex.Message);
+                        await Task.Delay(TimeSpan.FromSeconds(2 + refresh * 3), ct).ConfigureAwait(false);
                     }
                 }
-
-                // Without the built-in browser, the old verification window is the only way past a captcha.
-                var options = new HttpDownloadOptions(referer, AllowVerification: !browser);
-                return await httpDownloader.DownloadAsync(target, job.TempDirectory, saveAs, progress, ct, options).ConfigureAwait(false);
             }
             catch (Exception ex) when (browser && ex is BrowserRequiredException
                                            or HttpRequestException { StatusCode: HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable })

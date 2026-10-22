@@ -507,7 +507,8 @@
           </Button>
           <Button Grid.Column="4" Classes="quiet" Classes.selected="{Binding Trailer.IsBetSlipOpen}" VerticalAlignment="Center"
                   Padding="14,6" Margin="12,0,0,0"
-                  Command="{Binding Trailer.ToggleBetSlipCommand}" ToolTip.Tip="Show or hide the Roobet bet slip beside the video">
+                  Command="{Binding Trailer.ToggleBetSlipCommand}" ToolTip.Tip="Show or hide the Roobet bet slip beside the video"
+                  IsVisible="{Binding Trailer.ShowBetSlipButton}">
             <TextBlock Text="Bet slip" VerticalAlignment="Center" />
           </Button>
           <Button Grid.Column="5" Classes="quiet" Margin="12,0,0,0" VerticalAlignment="Center" Padding="14,6"

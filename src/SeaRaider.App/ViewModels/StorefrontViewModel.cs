@@ -3,6 +3,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SeaRaider.App.Services;
+using SeaRaider.Core;
 using SeaRaider.Core.Abstractions;
 using SeaRaider.Core.Catalog;
 using SeaRaider.Core.Emulation;
@@ -84,6 +85,8 @@ public sealed partial class StorefrontViewModel : PageViewModel
     private readonly GameActionService _actions;
     private readonly NavigationService _navigation;
     private readonly ArtworkService _artwork;
+    private readonly ReleaseDateService _releaseDates;
+    private CancellationTokenSource? _releaseFill;
 
     /// <summary>Cards by duplicate key, and every copy's game id → its card (for status updates).</summary>
     private readonly Dictionary<string, GameCardViewModel> _cards = new(StringComparer.Ordinal);
@@ -107,9 +110,10 @@ public sealed partial class StorefrontViewModel : PageViewModel
 
     public StorefrontViewModel(CatalogIndexService index, ILiveSearchService live, ILibraryRepository repository,
         IIngestionService ingestion, GameStatusService status, GameActionService actions, NavigationService navigation,
-        ArtworkService artwork, UpcomingViewModel upcoming)
+        ArtworkService artwork, UpcomingViewModel upcoming, ReleaseDateService releaseDates)
     {
         Upcoming = upcoming;
+        _releaseDates = releaseDates;
         _artwork = artwork;
         _index = index;
         _live = live;
@@ -309,7 +313,67 @@ public sealed partial class StorefrontViewModel : PageViewModel
         _searchTimer.Start();
     }
 
-    partial void OnSelectedSortChanged(SortChoice value) => Rebuild(resetPaging: true);
+    partial void OnSelectedSortChanged(SortChoice value)
+    {
+        Rebuild(resetPaging: true);
+        StartReleaseDateLookup();
+    }
+
+    private bool IsReleaseSort => SelectedSort.Sort is CatalogSort.ReleaseNewest or CatalogSort.ReleaseOldest;
+
+    /// <summary>"Finding release dates…" while games without one are looked up on Steam (release-date sorting only).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasReleaseLookupText))]
+    private string? _releaseLookupText;
+
+    public bool HasReleaseLookupText => !string.IsNullOrEmpty(ReleaseLookupText);
+
+    /// <summary>
+    /// Sorted by release date: most download sites don't say when a game came out, so the games without a known release date
+    /// (newest uploads first) are looked up on Steam in the background. Each date found is saved, and the store re-sorts as
+    /// they come in. Changing the sort stops it.
+    /// </summary>
+    private void StartReleaseDateLookup()
+    {
+        _releaseFill?.Cancel();
+        _releaseFill = null;
+        ReleaseLookupText = null;
+        if (!IsReleaseSort) return;
+
+        var missing = _ordered.Where(g => g.KnownReleaseUtc is null)
+            .OrderByDescending(g => g.NewestUploadUtc)
+            .Take(300)
+            .ToList();
+        if (missing.Count == 0) return;
+
+        var cts = new CancellationTokenSource();
+        _releaseFill = cts;
+        ReleaseLookupText = "Finding release dates on Steam for games whose page doesn't give one…";
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _releaseDates.FillAsync(missing, max: 150, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // sort changed
+            }
+            catch (Exception ex)
+            {
+                ErrorLog.Write(ex, "release date lookup");
+            }
+            finally
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_releaseFill != cts) return;
+                    _releaseFill = null;
+                    ReleaseLookupText = null;
+                });
+            }
+        });
+    }
 
     partial void OnSelectedSystemChanged(SystemChoice value) => Rebuild(resetPaging: true);
 
@@ -540,6 +604,7 @@ public sealed partial class StorefrontViewModel : PageViewModel
     {
         if (_cards.TryGetValue(group.Key, out var card)) card.Update(group, _sourceNames);
         else _cards[group.Key] = card = new GameCardViewModel(group, _sourceNames, _status, _actions, _navigation, HideCard, _artwork);
+        card.ShowReleaseDate = IsReleaseSort;
 
         foreach (var variant in group.Variants) _cardByGameId[variant.Id] = card;
         return card;

@@ -30,8 +30,8 @@
         3. Each release:  .\scripts\release.ps1 -Version 0.11.0 -Repo OWNER/REPO
       Leave either empty to ship a build that doesn't update itself.
     -->
-    <SeaRaiderUpdateFeed Condition="'$(SeaRaiderUpdateFeed)' == ''">https://github.com/memoryrefresher/sruk/releases/latest/download/latest.json</SeaRaiderUpdateFeed>
-    <SeaRaiderUpdatePublicKey Condition="'$(SeaRaiderUpdatePublicKey)' == ''">MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkpe3dEnMXxoq4Gm8wAUjgVY2VosO1sVJ+5skkefawhrbkqguTviGodtijU5DZrNYs+6FsXDcaG1fd0nWs7iVLA==</SeaRaiderUpdatePublicKey>
+    <SeaRaiderUpdateFeed Condition="'$(SeaRaiderUpdateFeed)' == ''"></SeaRaiderUpdateFeed>
+    <SeaRaiderUpdatePublicKey Condition="'$(SeaRaiderUpdatePublicKey)' == ''"></SeaRaiderUpdatePublicKey>
     <!-- The version the updater compares is <Version> above: keep the build's own version clean (no "+commit"). -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>

@@ -48,6 +48,9 @@ public interface IGameLauncherService
     /// </summary>
     Task UninstallAsync(string gameId, CancellationToken cancellationToken = default);
 
+    /// <summary>Uninstalls, keeping the downloaded setup files when asked (the game is then ready to install again).</summary>
+    Task UninstallAsync(string gameId, bool keepSetupFiles, CancellationToken cancellationToken = default);
+
     /// <summary>Re-runs executable detection, e.g. if the user's game was patched.</summary>
     Task<string?> RedetectExecutableAsync(string gameId, CancellationToken cancellationToken = default);
 

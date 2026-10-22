@@ -135,10 +135,29 @@ public sealed partial class GameCardViewModel : ViewModelBase, IChatAttachmentSo
     public bool HasMultipleSources => Group.SourceCount > 1;
     public string SourceCountText => $"{Group.SourceCount} sources";
 
-    /// <summary>"Uploaded 3 Oct 2026" (newest copy), or the release date when no upload date is known.</summary>
-    public string DateText => Group.NewestUploadUtc is { } up
-        ? "Uploaded " + up.ToLocalTime().ToString("d MMM yyyy", CultureInfo.CurrentCulture)
-        : Entry.ReleaseDate is { Length: > 0 } released ? "Released " + released : string.Empty;
+    /// <summary>The store is sorted by release date: the card shows the game's release date instead of its upload date.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DateText))]
+    private bool _showReleaseDate;
+
+    /// <summary>
+    /// "Uploaded 3 Oct 2026" (newest copy). Sorted by release date: "Released 14 Mar 2024" (the game's own date, never the
+    /// upload's), "Releases …" for one still to come, or "Release date unknown". Never the one passed off as the other.
+    /// </summary>
+    public string DateText
+    {
+        get
+        {
+            var released = Group.KnownReleaseUtc;
+            if (ShowReleaseDate)
+            {
+                if (released is not { } r) return "Release date unknown";
+                return (r.Date > DateTime.UtcNow.Date ? "Releases " : "Released ") + r.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+            }
+            if (Group.NewestUploadUtc is { } up) return "Uploaded " + up.ToLocalTime().ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+            return released is { } known ? "Released " + known.ToString("d MMM yyyy", CultureInfo.CurrentCulture) : string.Empty;
+        }
+    }
 
     [ObservableProperty] private string _actionLabel = string.Empty;
 

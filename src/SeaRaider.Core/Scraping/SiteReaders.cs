@@ -219,7 +219,7 @@ public sealed class SiteReaderCatalog
     public string SaveLesson(SiteReaderLesson lesson)
     {
         if (lesson.Reader.Domains.Count == 0) throw new ArgumentException("The lesson has no site.");
-        if (lesson.Reader.Page is null && lesson.Reader.Listing is null)
+        if (lesson.Reader.Page is null && lesson.Reader.Listing is null && string.IsNullOrWhiteSpace(lesson.Reader.BrowseUrl))
             throw new ArgumentException("Nothing was learned from that page, so there is nothing to save.");
 
         EnsureUserFolder();
@@ -387,7 +387,10 @@ public static partial class SiteReaderParser
             }.Normalize());
         }
 
-        var hasMore = recipe.NextPage is not null && Url(doc, recipe.NextPage, pageUri) is not null;
+        // A "next page" link says so; without one, a numbered address ("…/page/{page}/") goes on while pages have games.
+        var hasMore = recipe.NextPage is not null
+            ? Url(doc, recipe.NextPage, pageUri) is not null
+            : games.Count > 0 && reader.BrowseUrl?.Contains("{page}", StringComparison.OrdinalIgnoreCase) == true;
         return (games, hasMore);
     }
 
@@ -600,19 +603,35 @@ public static partial class SiteReaderParser
         if (attr is not null) return Resolve(FirstOfSrcset(attr, element.GetAttribute(attr)), baseUri);
         string[] candidates = element.LocalName switch
         {
-            "a" or "link" => ["href"],
+            "a" or "link" => ["href", "data-href", "data-url", "data-link", "data-download"],
             "img" => ["data-src", "data-lazy-src", "data-original", "data-srcset", "srcset", "src"],
             "meta" => ["content"],
             "source" or "video" or "iframe" or "embed" => ["src", "data-src"],
-            _ => ["href", "data-src", "src", "data-bg", "content"],
+            "form" => ["action"],
+            "button" or "input" => ["formaction", "data-href", "data-url", "data-link", "data-download"],
+            _ => ["href", "data-href", "data-url", "data-link", "data-download", "data-src", "src", "data-bg", "content"],
         };
         foreach (var name in candidates)
             if (Resolve(FirstOfSrcset(name, element.GetAttribute(name)), baseUri) is { } url) return url;
+
+        // A download button with no link of its own: "onclick=location.href='…'" / "window.open('…')", or the form it sends.
+        if (element.GetAttribute("onclick") is { Length: > 0 } onclick && OnClickUrlRegex().Match(onclick) is { Success: true } click &&
+            Resolve(click.Groups["u"].Value, baseUri) is { } clicked)
+            return clicked;
+        if (element.LocalName is "button" or "input" && element.Closest("form") is { } form &&
+            Resolve(form.GetAttribute("action"), baseUri) is { } sent)
+            return sent;
 
         // A wrapper around the real link or picture.
         var inner = element.QuerySelector("a[href], img");
         return inner is null ? null : UrlOf(inner, null, baseUri);
     }
+
+    [GeneratedRegex(@"(?:location(?:\.href)?|window\.open|open)\s*(?:=|\()\s*['""](?<u>[^'""]+)['""]", RegexOptions.IgnoreCase)]
+    private static partial Regex OnClickUrlRegex();
+
+    /// <summary>The address an element leads to (a link, a picture, a download button or its form), or null.</summary>
+    public static string? UrlOfElement(IElement element, Uri baseUri) => UrlOf(element, null, baseUri);
 
     /// <summary>"a.jpg 1x, b.jpg 2x" → the biggest; anything else as is.</summary>
     private static string? FirstOfSrcset(string attribute, string? value)

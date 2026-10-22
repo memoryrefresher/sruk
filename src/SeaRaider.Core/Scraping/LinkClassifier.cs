@@ -173,6 +173,16 @@ public static partial class LinkClassifier
             return link;
         }
 
+        // "💾 Download Lost Marbles" → https://site/?__df=…, /download.php?id=12: a site's own download script. No file name
+        // in the address; the server names the file when it sends it (Content-Disposition).
+        if (IsDownloadScript(url, label))
+        {
+            link.Kind = DownloadLinkKind.DirectHttp;
+            link.FileName = string.Empty;
+            link.Label = new string(label.SkipWhile(c => !char.IsLetterOrDigit(c)).ToArray()); // "💾 Download X" → "Download X"
+            return link;
+        }
+
         if (forceDownload && !NonDownloadExtensions.Contains(ext))
         {
             link.Kind = DownloadLinkKind.DirectHttp;
@@ -181,6 +191,22 @@ public static partial class LinkClassifier
 
         return null;
     }
+
+    /// <summary>A button that says "Download" and points at a download script (an address with a file/download key).</summary>
+    internal static bool IsDownloadScript(Uri url, string label) =>
+        DownloadLabelRegex().IsMatch(label) && url.Query.Length > 1 &&
+        (DownloadQueryRegex().IsMatch(url.Query) || DownloadScriptPathRegex().IsMatch(url.AbsolutePath));
+
+    [GeneratedRegex(@"^\W*download\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex DownloadLabelRegex();
+
+    // ?__df=…, ?dl=…, ?download=…, ?file_id=…, ?fid=…, ?get=…
+    [GeneratedRegex(@"(?:^|[?&])_*(?:df|dl|download|download_?id|file|file_?id|fid|get)=", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex DownloadQueryRegex();
+
+    // /download.php?id=…, /dl?f=…, /getfile.php?…
+    [GeneratedRegex(@"/(?:download|dl|get|getfile|file)s?(?:\.php)?/?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex DownloadScriptPathRegex();
 
     /// <summary>
     /// Parses split-archive naming schemes. Group keys are lower-cased base names; part numbers are

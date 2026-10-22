@@ -107,8 +107,16 @@ public sealed class GameActionService(
         if (status.GetLatestJob(game.Id) is { Status: DownloadJobStatus.Failed } failed)
             await downloads.RemoveAsync(failed.Id);
 
-        InstallRequest? request = new(game) { PreferredLink = preferredLink };
-        if (repository.GetSettings().AskBeforeDownload)
+        // Simple mode is one click: the game downloads and unpacks with the defaults, and its setup waits in the Library for
+        // Install (it doesn't start by itself). The options dialog (folder, file names, setup switches, installing at once)
+        // is part of advanced options.
+        var settings = repository.GetSettings();
+        InstallRequest? request = new(game)
+        {
+            PreferredLink = preferredLink,
+            RunInstallerWhenReady = settings.ShowAdvancedOptions ? null : false,
+        };
+        if (settings.ShowAdvancedOptions && settings.AskBeforeDownload)
         {
             request = await dialogs.ShowInstallOptionsAsync(game, preferredLink);
             if (request is null) return; // cancelled in the dialog

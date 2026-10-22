@@ -35,7 +35,47 @@ public sealed partial class LibraryViewModel : PageViewModel
         Reload();
     }
 
+    /// <summary>Every row (PC and console), for live updates.</summary>
     public ObservableCollection<InstalledGameViewModel> Games { get; } = [];
+
+    /// <summary>What the page shows: the PC games, or the console games in one section per console.</summary>
+    public ObservableCollection<LibrarySection> Sections { get; } = [];
+
+    /// <summary>The console part of the library is showing (else PC games).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowPc))]
+    private bool _showConsoles;
+
+    public bool ShowPc => !ShowConsoles;
+
+    [ObservableProperty] private string _pcCountText = "0";
+    [ObservableProperty] private string _consoleCountText = "0";
+
+    /// <summary>Console games are installed: the PC / Consoles switch shows.</summary>
+    [ObservableProperty] private bool _hasConsoleGames;
+
+    /// <summary>The part showing has nothing (the other part may).</summary>
+    [ObservableProperty] private bool _isPartEmpty;
+
+    [ObservableProperty] private string _partEmptyText = string.Empty;
+
+    private bool _choseConsoles; // the user picked a part: don't switch for them
+
+    [RelayCommand]
+    private void ShowPcGames()
+    {
+        _choseConsoles = true;
+        ShowConsoles = false;
+    }
+
+    [RelayCommand]
+    private void ShowConsoleGames()
+    {
+        _choseConsoles = true;
+        ShowConsoles = true;
+    }
+
+    partial void OnShowConsolesChanged(bool value) => BuildSections();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
@@ -79,6 +119,14 @@ public sealed partial class LibraryViewModel : PageViewModel
         }
 
         Count = Games.Count;
+        var consoles = Games.Count(g => g.SystemName is not null);
+        HasConsoleGames = consoles > 0;
+        PcCountText = (Games.Count - consoles).ToString("N0");
+        ConsoleCountText = consoles.ToString("N0");
+        if (!_choseConsoles && consoles > 0 && consoles == Games.Count) ShowConsoles = true;  // only console games: show them
+        if (consoles == 0 && ShowConsoles) ShowConsoles = false;
+        BuildSections();
+
         var playable = installs.Count(i => i.State == GameInstallState.Installed);
         var pending = installs.Count(i => i.State is GameInstallState.ReadyToInstall or GameInstallState.RunningInstaller);
         Summary = Count == 0
@@ -87,8 +135,34 @@ public sealed partial class LibraryViewModel : PageViewModel
               (pending > 0 ? $", {pending} waiting to install" : string.Empty);
     }
 
+    /// <summary>PC games in one list; console games in a section per console (alphabetical).</summary>
+    private void BuildSections()
+    {
+        Sections.Clear();
+        if (ShowConsoles)
+        {
+            foreach (var console in Games.Where(g => g.SystemName is not null).GroupBy(g => g.SystemName!).OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase))
+                Sections.Add(new LibrarySection(console.Key, console.ToList()));
+        }
+        else if (Games.Where(g => g.SystemName is null).ToList() is { Count: > 0 } pc)
+        {
+            Sections.Add(new LibrarySection(null, pc));
+        }
+        IsPartEmpty = Count > 0 && Sections.Count == 0;
+        PartEmptyText = ShowConsoles
+            ? "No console games yet. Pick a console in the Store to find some."
+            : "No PC games yet. Your console games are under Consoles.";
+    }
+
     [RelayCommand]
     private void OpenLibraryFolder() => RunSafe(() => _shell.OpenFolder(_repository.GetSettings().LibraryRoot));
+}
+
+/// <summary>A part of the library: a console's games under its name, or the PC games (no heading).</summary>
+public sealed record LibrarySection(string? Header, IReadOnlyList<InstalledGameViewModel> Games)
+{
+    public bool HasHeader => Header is not null;
+    public string CountText => Games.Count == 1 ? "1 game" : $"{Games.Count} games";
 }
 
 /// <summary>One library row: a playable game, or a setup that still has to run.</summary>
@@ -103,6 +177,10 @@ public sealed partial class InstalledGameViewModel(
     private bool _loading;
 
     public string GameId => _install.GameId;
+
+    /// <summary>The console it's for ("Game Boy Advance"), or null for a PC game. From the ROM found, else what the store page
+    /// called it (so a console game whose ROM wasn't found yet still sits with its console).</summary>
+    public string? SystemName { get; private set; }
 
     [ObservableProperty] private string _title = string.Empty;
     [ObservableProperty] private string? _coverImageUrl;
@@ -161,8 +239,19 @@ public sealed partial class InstalledGameViewModel(
 
     public bool IsPlayable => !IsSetupReady && !IsInstalling;
 
-    /// <summary>Installed desktop games (not browser games) can have their launch file chosen.</summary>
-    public bool CanSetLaunchFile => IsPlayable && !IsUninstalling && _install.WebGameUrl is not { Length: > 0 } && _install.RomPath is not { Length: > 0 };
+    /// <summary>
+    /// Installed desktop games (not browser games) can have their launch file chosen; so can a setup that finished without its
+    /// program being found (it may have installed it somewhere SeaRaider didn't look).
+    /// </summary>
+    public bool CanSetLaunchFile => !IsUninstalling && _install.WebGameUrl is not { Length: > 0 } && _install.RomPath is not { Length: > 0 } &&
+                                    (IsPlayable || IsIncompleteSetup);
+
+    /// <summary>Setup ran but the game's program wasn't found: Install runs it again, the setup files are kept.</summary>
+    public bool IsIncompleteSetup => IsSetupReady && !IsInstalling && _install.InstallerState == InstallerState.Failed &&
+                                     !string.IsNullOrEmpty(_install.InstallDirectory) && Directory.Exists(_install.InstallDirectory);
+
+    /// <summary>Uninstalling can keep the setup files (to install again without downloading): only when they're still there.</summary>
+    public bool CanKeepSetup => !IsSetupReady && HasSetupFiles;
     public bool HasWarning => !string.IsNullOrEmpty(Warning);
     public bool HasCover => !string.IsNullOrEmpty(CoverImageUrl);
     public string PlayLabel => IsRunning ? "Running" : "Play";
@@ -180,6 +269,10 @@ public sealed partial class InstalledGameViewModel(
         _loading = true;
         _install = install;
         Title = DisplayText.Title(install.Title);
+        var system = Core.Emulation.GameSystems.Find(install.SystemId);
+        if (system is null && install.ExecutablePath is null && install.WebGameUrl is not { Length: > 0 } && repository.GetGame(install.GameId) is { } game)
+            system = Core.Emulation.GameSystems.FromText($"{game.Title} {string.Join(' ', game.Genres)} {game.PageUrl}");
+        SystemName = system?.Name;
         CoverImageUrl = install.CoverImageUrl;
         IsUninstalling = install.State == GameInstallState.Uninstalling || launcher.IsUninstalling(install.GameId);
         IsSetupReady = install.State is GameInstallState.ReadyToInstall or GameInstallState.RunningInstaller;
@@ -213,7 +306,8 @@ public sealed partial class InstalledGameViewModel(
             : $"{consolePrefix}{Formatting.Bytes(_install.SizeOnDiskBytes)}, {lastPlayed}";
 
         foreach (var name in new[] { nameof(PlayLabel), nameof(CanPlay), nameof(IsPlayable), nameof(InstallLabel), nameof(CanInstall),
-                     nameof(RemoveLabel), nameof(ConfirmText), nameof(HasWarning), nameof(HasCover), nameof(CanSetLaunchFile) })
+                     nameof(RemoveLabel), nameof(ConfirmText), nameof(HasWarning), nameof(HasCover), nameof(CanSetLaunchFile),
+                     nameof(IsIncompleteSetup), nameof(CanKeepSetup) })
             OnPropertyChanged(name);
     }
 
@@ -293,6 +387,22 @@ public sealed partial class InstalledGameViewModel(
         {
             if (IsSetupReady) await installer.DiscardInstallerAsync(_install.GameId);
             else await launcher.UninstallAsync(_install.GameId);
+        }
+        finally
+        {
+            IsUninstalling = false;
+        }
+    });
+
+    /// <summary>"Uninstall, keep setup": the game goes, its setup files stay, and Install runs setup again.</summary>
+    [RelayCommand]
+    private Task ConfirmUninstallKeepSetupAsync() => RunSafeAsync(async () =>
+    {
+        IsConfirmingUninstall = false;
+        IsUninstalling = true;
+        try
+        {
+            await launcher.UninstallAsync(_install.GameId, keepSetupFiles: true);
         }
         finally
         {

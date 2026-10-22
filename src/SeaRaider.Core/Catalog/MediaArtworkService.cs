@@ -214,6 +214,49 @@ public sealed partial class MediaArtworkService(IHttpClientFactory httpClientFac
         return null;
     }
 
+    // ---- sports: which sport a title is (its box shows the sport's logo when nothing else was found) ---------
+
+    /// <summary>Sport names → the sport (the Articles were for photos, unused now).</summary>
+    private static readonly (string[] Words, string Key, string[] Articles)[] Sports =
+    [
+        (["american football", "nfl", "ncaaf", "college football"], "american-football", ["American football", "National Football League"]),
+        (["aussie", "afl", "australian rules"], "afl", ["Australian rules football"]),
+        (["football", "soccer", "futbol", "premier league", "la liga", "champions league", "serie a", "bundesliga", "mls"], "football", ["Association football", "Stadium"]),
+        (["basketball", "nba", "wnba", "ncaab", "euroleague"], "basketball", ["Basketball", "National Basketball Association"]),
+        (["ice hockey", "hockey", "nhl"], "hockey", ["Ice hockey", "National Hockey League"]),
+        (["baseball", "mlb"], "baseball", ["Baseball", "Major League Baseball"]),
+        (["ufc", "mma", "mixed martial"], "mma", ["Mixed martial arts"]),
+        (["boxing"], "boxing", ["Boxing"]),
+        (["wrestling", "wwe", "aew"], "wrestling", ["Professional wrestling"]),
+        (["fight", "fighting", "combat"], "mma", ["Mixed martial arts"]),
+        (["horse racing", "horse"], "horse-racing", ["Horse racing"]),
+        (["motogp", "motorcycle", "superbike"], "motorcycle", ["Motorcycle racing", "Grand Prix motorcycle racing"]),
+        (["formula", "f1", "nascar", "indycar", "motor", "racing", "motorsport", "rally"], "motorsport", ["Formula One car", "Auto racing", "Motorsport"]),
+        (["table tennis", "ping pong"], "table-tennis", ["Table tennis"]),
+        (["tennis", "atp", "wta"], "tennis", ["Tennis"]),
+        (["rugby"], "rugby", ["Rugby union", "Rugby league"]),
+        (["golf", "pga"], "golf", ["Golf"]),
+        (["cricket", "ipl"], "cricket", ["Cricket"]),
+        (["darts"], "darts", ["Darts"]),
+        (["snooker", "billiards", "pool"], "cue-sports", ["Snooker", "Cue sports"]),
+        (["volleyball"], "volleyball", ["Volleyball"]),
+        (["handball"], "handball", ["Handball"]),
+        (["cycling", "tour de france"], "cycling", ["Cycle sport", "Road bicycle racing"]),
+        (["esports", "e-sports", "gaming"], "esports", ["Esports"]),
+        (["badminton"], "badminton", ["Badminton"]),
+        (["athletics", "olympics", "track"], "athletics", ["Athletics (sport)", "Olympic Games"]),
+    ];
+
+    /// <summary>Which sport a title's category names ("Football", "Fight (UFC, Boxing)"), or "any" for a live event with no known
+    /// sport. Null: not a sport (a movie, a show).</summary>
+    public static string? SportKey(string? category, bool isLive)
+    {
+        var text = " " + Norm(category) + " ";
+        foreach (var (words, key, _) in Sports)
+            if (words.Any(w => text.Contains(" " + w + " ", StringComparison.Ordinal))) return key;
+        return isLive || string.Equals(Norm(category), "sports", StringComparison.Ordinal) ? "any" : null;
+    }
+
     // ---- names --------------------------------------------------------------------------------------------
 
     private static string? Text(JsonElement element, string property) =>

@@ -12,6 +12,9 @@ public sealed record GameGroup(string Key, CatalogEntry Primary, IReadOnlyList<C
 
     public bool IsMerged => Variants.Count > 1;
 
+    /// <summary>The game's real release date, from whichever copy knows it (null when none does).</summary>
+    public DateTime? KnownReleaseUtc => Variants.Select(v => v.KnownReleaseUtc).FirstOrDefault(d => d is not null);
+
     /// <summary>Newest upload among the copies.</summary>
     public DateTime? NewestUploadUtc => Variants.Max(v => v.UploadedAtUtc);
 }

@@ -209,10 +209,25 @@ public sealed class InstallerService : IInstallerService
             _logger.LogWarning("Setup files of {Title} stay for now: {Problem}", install.Title, problem);
         install.KeepSetupFiles = settings.SetupFilesAfterInstall == SetupFilesMode.Keep;
 
+        // Setup ended but the game's program isn't there, and the setup files are: back to "ready to install", so Install runs
+        // setup again (and Remove setup only removes the setup files). "Set launch file" still works if it installed elsewhere.
+        if (!complete && exe is null && install.SetupDirectory is { Length: > 0 } kept && Directory.Exists(kept))
+        {
+            _logger.LogWarning("{Title}: setup ended but the game's program wasn't found; keeping the setup files in {Dir} to try again",
+                install.Title, kept);
+            install.State = GameInstallState.ReadyToInstall;
+            install.InstallerState = InstallerState.Failed;
+            install.LastError = "Setup finished, but the game's program wasn't found. The setup files are kept: click Install to run " +
+                                "setup again, or Set launch file if it installed somewhere else.";
+            _repository.UpsertInstall(install);
+            InstallerStateChanged?.Invoke(this, install.GameId);
+            return new InstallerRunResult(false, false, exitCode, null, install.LastError);
+        }
+
         install.State = GameInstallState.Installed;
         install.InstallerState = InstallerState.Succeeded;
         install.LastError = complete ? null
-            : "Setup finished, but the game doesn't look fully installed (its .exe wasn't found). The setup files were kept; choose the game's .exe, or click Install to run setup again.";
+            : "Setup finished, but the game doesn't look fully installed. The setup files were kept; choose the game's .exe, or click Install to run setup again.";
         _repository.UpsertInstall(install);
         InstallerStateChanged?.Invoke(this, install.GameId);
 

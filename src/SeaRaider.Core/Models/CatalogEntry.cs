@@ -25,7 +25,13 @@ public sealed class CatalogEntry
     public string? ReleaseDate { get; set; }
     public DateTime? ReleaseDateUtc { get; set; }
     public DateTime? UploadedAtUtc { get; set; }
+    public bool ReleaseFromSteam { get; set; }
     public bool DetailsLoaded { get; set; }
+
+    /// <summary>The game's real release date, or null: a "release date" that is just the post's own date (the same day it was
+    /// uploaded, from older reads) doesn't count. See <see cref="ReleaseDates.IsReal"/>.</summary>
+    [BsonIgnore]
+    public DateTime? KnownReleaseUtc => ReleaseDates.IsReal(ReleaseDateUtc, UploadedAtUtc, ReleaseFromSteam) ? ReleaseDateUtc : null;
     public DateTime FetchedAtUtc { get; set; }
 
     private string? _sizeParsedFrom;
@@ -87,6 +93,7 @@ public sealed class CatalogEntry
         ReleaseDate = game.ReleaseDate,
         ReleaseDateUtc = game.ReleaseDateUtc,
         UploadedAtUtc = game.UploadedAtUtc,
+        ReleaseFromSteam = game.ReleaseDateFromSteam,
         DetailsLoaded = game.DetailsLoaded,
         FetchedAtUtc = game.FetchedAtUtc,
     };
@@ -132,14 +139,17 @@ public static class CatalogSorting
             .OrderBy(e => e.UploadedAtUtc is null)
             .ThenBy(e => e.UploadedAtUtc)
             .ThenBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase),
+        // By the game's own release date only (never its upload date); games whose release date isn't known go last,
+        // newest upload first.
         CatalogSort.ReleaseNewest => entries
-            .OrderBy(e => e.ReleaseDateUtc is null)
-            .ThenByDescending(e => e.ReleaseDateUtc)
+            .OrderBy(e => e.KnownReleaseUtc is null)
+            .ThenByDescending(e => e.KnownReleaseUtc)
             .ThenByDescending(e => e.UploadedAtUtc)
             .ThenBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase),
         CatalogSort.ReleaseOldest => entries
-            .OrderBy(e => e.ReleaseDateUtc is null)
-            .ThenBy(e => e.ReleaseDateUtc)
+            .OrderBy(e => e.KnownReleaseUtc is null)
+            .ThenBy(e => e.KnownReleaseUtc)
+            .ThenByDescending(e => e.UploadedAtUtc)
             .ThenBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase),
         CatalogSort.SizeSmallest => entries
             .OrderBy(e => e.SizeBytes is null)                    // sized first, unknown sizes last
@@ -161,4 +171,30 @@ public static class CatalogSorting
 
     public static string[] SplitWords(string? text) =>
         (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+}
+
+/// <summary>Telling a game's release date from the date it was posted.</summary>
+public static class ReleaseDates
+{
+    /// <summary>
+    /// A release date is the game's own when it came from Steam, or when it isn't the post's date: sites' "datePublished" and
+    /// post dates were read as release dates before, which made "Release date" sorting the same as "Upload date". A date
+    /// within a day of the upload is taken to be the post's.
+    /// </summary>
+    public static bool IsReal(DateTime? release, DateTime? uploaded, bool fromSteam) =>
+        release is { } r && (fromSteam || uploaded is not { } u || Math.Abs((r.Date - u.Date).TotalDays) > 1);
+
+    private static readonly string[] SteamFormats = ["d MMM, yyyy", "MMM d, yyyy", "d MMMM, yyyy", "MMMM d, yyyy", "d MMM yyyy", "MMM yyyy", "MMMM yyyy"];
+
+    /// <summary>Steam's release date text ("20 Oct, 2026", "Oct 20, 2026"); null for "Coming soon", "Q4 2026", "To be announced".</summary>
+    public static DateTime? ParseSteam(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var clean = text.Trim();
+        return DateTime.TryParseExact(clean, SteamFormats, System.Globalization.CultureInfo.GetCultureInfo("en-US"),
+            System.Globalization.DateTimeStyles.AllowWhiteSpaces | System.Globalization.DateTimeStyles.AssumeUniversal |
+            System.Globalization.DateTimeStyles.AdjustToUniversal, out var date)
+            ? DateTime.SpecifyKind(date.Date, DateTimeKind.Utc)
+            : null;
+    }
 }

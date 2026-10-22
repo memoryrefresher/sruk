@@ -20,6 +20,13 @@ public sealed class ArtworkRecord
 
     public int? SteamAppId { get; set; }
 
+    /// <summary>The game's release date from its Steam page (ReleaseDateService), and its text there ("20 Oct, 2026").</summary>
+    public DateTime? ReleaseDateUtc { get; set; }
+    public string? ReleaseDateText { get; set; }
+
+    /// <summary>When the release date was last looked up (null: never).</summary>
+    public DateTime? ReleaseCheckedAtUtc { get; set; }
+
     /// <summary>"Steam", "Game page".</summary>
     public string? Source { get; set; }
 

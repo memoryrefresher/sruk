@@ -159,6 +159,12 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
                 DropPlaceholderPictures(items);
                 needArtwork = items.Where(i => !artwork.ApplyCached(i)).ToList();
             }
+            else if (source.Kind is MediaSourceKind.Stream or MediaSourceKind.Page)
+            {
+                // A player or embed link: a picture of what's on (team crests for a match, a poster), unless the page has its
+                // own. Only titles that say something (not "Stream" or the site's name).
+                needArtwork = items.Where(i => i.ThumbnailUrl is null && !IsVagueTitle(i.Title, i.PageUrl) && !artwork.ApplyCached(i)).ToList();
+            }
             repository.ReplaceMediaItems(source.Id, items);
             if (needArtwork.Count > 0 && _artworkRunning.TryAdd(source.Id, 0))
                 _ = Task.Run(() => FillArtworkAsync(source.Id, needArtwork, _lifetime.Token));
@@ -278,7 +284,7 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
         using (var doc = await MediaTitleParser.OpenAsync(content, pageUri, ct).ConfigureAwait(false))
         {
             var titles = MediaTitleParser.ParseTitles(doc, pageUri, source.Id);
-            if (titles.Count >= MinCatalogTitles && titles.Count > found.Count * 2)
+            if (LooksLikeTitleList(titles, doc, pageUri, found.Count))
             {
                 source.Kind = MediaSourceKind.Catalog;
                 return await CrawlCatalogAsync(source, doc, pageUri, titles, ct).ConfigureAwait(false);
@@ -293,6 +299,18 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
     // Sites that list titles (Browse grid)
     // =============================================================================================
 
+    /// <summary>
+    /// The page lists titles to browse: plenty of them, or a few that are clearly events (live, "A vs B") or that sit in a
+    /// site with sections ("Football", "Basketball"): a live-sports site can have only three or four events on at a time.
+    /// </summary>
+    private static bool LooksLikeTitleList(List<MediaItem> titles, AngleSharp.Dom.IDocument doc, Uri pageUri, int videos)
+    {
+        if (titles.Count <= videos * 2) return false;
+        if (titles.Count >= MinCatalogTitles) return true;
+        return titles.Count >= 2 &&
+               (titles.Any(t => t.IsLive || MediaTitleParser.Matchup(t.Title) is not null) || MediaTitleParser.FindSections(doc, pageUri).Count > 0);
+    }
+
     /// <summary>A site's list of titles, read again: its first page and the pages after it.</summary>
     private async Task<List<MediaItem>> ReadCatalogAsync(MediaSource source, CancellationToken ct)
     {
@@ -302,9 +320,9 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
         var titles = MediaTitleParser.ParseTitles(doc, pageUri, source.Id);
         if (titles.Count == 0)
         {
-            // The site changed: read it as an ordinary page again (it becomes a site again if titles show up).
-            source.Kind = MediaSourceKind.Page;
-            return await ReadFeedOrPageAsync(source, ct).ConfigureAwait(false);
+            // Nothing listed right now (between events, or the site hiccuped): it stays a site, and the next check reads it
+            // again. Turning it into a plain page made it a single "player" box, named after the site, for good.
+            return [];
         }
         if (source.LastFetchedUtc is null && !source.NameChosen &&
             (MediaListParser.MetaContent(content, "og:site_name") ?? HtmlTitle(content)) is { Length: > 0 } siteName)
@@ -512,6 +530,9 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
 
         var host = new Uri(bare).Host;
         host = host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? host[4..] : host;
+        // Embed pages are titled "Stream", "Player" or the site's name: the address usually names the event
+        // (".../embed/bayern-munich-vs-arsenal/1").
+        if (IsVagueTitle(title, bare) && TitleFromAddress(bare) is { } named) title = named;
         var name = source.NameChosen && source.Name.Length > 0 ? source.Name : title ?? $"{host} stream";
         if (!source.NameChosen && title is not null) source.Name = title;
 
@@ -534,6 +555,7 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
     /// </summary>
     private static List<MediaItem> PageAsPlayer(MediaSource source, string html, Uri page, string? pageTitle)
     {
+        if (IsVagueTitle(pageTitle, page.AbsoluteUri) && TitleFromAddress(page.AbsoluteUri) is { } named) pageTitle = named;
         var title = source.NameChosen && source.Name.Length > 0 ? source.Name : string.IsNullOrWhiteSpace(pageTitle) ? page.Host : pageTitle.Trim();
         var streams = MediaStreams.FindStreamUrls(html)
             .Select(u => Uri.TryCreate(page, u, out var abs) ? abs.AbsoluteUri : null).OfType<string>().ToList();
@@ -691,6 +713,57 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
         {
             return false;
         }
+    }
+
+    private static readonly HashSet<string> PlayerWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "stream", "streams", "streaming", "embed", "embeds", "player", "players", "watch", "live", "video", "videos", "tv", "hd",
+        "online", "free", "server", "source", "channel", "home", "iframe", "e", "v", "p", "play", "link", "links", "event", "events",
+        "match", "matches", "sports", "sport", "alpha", "bravo", "charlie", "delta", "echo", "golf", "admin", "main", "en",
+    };
+
+    /// <summary>
+    /// A title that doesn't say what's on: empty, the site's own name ("Streamed", "embedsports.top"), or only player words
+    /// ("Stream 1", "Live Player", "Embed").
+    /// </summary>
+    internal static bool IsVagueTitle(string? title, string? address)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return true;
+        var words = System.Text.RegularExpressions.Regex.Split(title.ToLowerInvariant(), @"[^\p{L}\p{N}]+").Where(w => w.Length > 0).ToList();
+        if (words.Count == 0) return true;
+        var siteWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (Uri.TryCreate(MediaStreams.WithoutHint(address ?? string.Empty), UriKind.Absolute, out var uri))
+            foreach (var part in uri.Host.Split('.')) siteWords.Add(part);
+        return words.All(w => PlayerWords.Contains(w) || siteWords.Contains(w) || w.All(char.IsDigit) || w is "com" or "net" or "org" or "to" or "su" or "top" or "io");
+    }
+
+    /// <summary>
+    /// What an embed address names: the most wordy part of its path, made readable
+    /// (".../embed/admin/bayern-munich-vs-arsenal/1" → "Bayern Munich vs Arsenal"). Null when no part reads as a name.
+    /// </summary>
+    internal static string? TitleFromAddress(string? address)
+    {
+        if (!Uri.TryCreate(MediaStreams.WithoutHint(address ?? string.Empty), UriKind.Absolute, out var uri)) return null;
+        string? best = null;
+        var bestWords = 0;
+        foreach (var segment in uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries).Select(Uri.UnescapeDataString))
+        {
+            var bare = System.Text.RegularExpressions.Regex.Replace(segment, @"\.(html?|php|aspx?)$", string.Empty, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            var words = bare.Split(['-', '_', '+', ' ', '.'], StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => !w.All(char.IsDigit))                                         // "1", "20261022"
+                .Where(w => !(w.Length >= 8 && w.Any(char.IsDigit) && w.Any(char.IsLetter))) // ids: "a8f3k2l9x"
+                .ToList();
+            var meaningful = words.Count(w => w.Any(char.IsLetter) && !PlayerWords.Contains(w));
+            if (meaningful >= 2 && meaningful > bestWords)
+            {
+                bestWords = meaningful;
+                best = string.Join(' ', words.Select(w => w.Equals("vs", StringComparison.OrdinalIgnoreCase) || w.Equals("v", StringComparison.OrdinalIgnoreCase)
+                    ? "vs"
+                    : w.Length <= 3 && w.All(char.IsLetter) && w.ToUpperInvariant() == w ? w
+                    : char.ToUpperInvariant(w[0]) + w[1..].ToLowerInvariant()));
+            }
+        }
+        return best;
     }
 
     private static string? HtmlTitle(string html) =>

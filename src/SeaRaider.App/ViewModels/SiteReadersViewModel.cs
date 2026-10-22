@@ -47,6 +47,34 @@ public sealed partial class SiteReadersViewModel(SiteReaderCatalog catalog, Site
     /// <summary>Optional: an exact CSS selector for the download links.</summary>
     [ObservableProperty] private string _learnDownloadSelector = string.Empty;
 
+    /// <summary>Optional: the download button's code, copied from View source (Ctrl+U).</summary>
+    [ObservableProperty] private string _learnDownloadSnippet = string.Empty;
+
+    /// <summary>Optional: the list's second page ("example.com/demo/page/2/"): every page is then read by its number.</summary>
+    [ObservableProperty] private string _learnPageTwo = string.Empty;
+
+    /// <summary>Where things are on a game's page, as the user shows them (words, View-source code, or CSS).</summary>
+    public IReadOnlyList<LearnPointerViewModel> PagePointers { get; } =
+    [
+        new("title", "Title", "The game's name as the page shows it"),
+        new("cover", "Cover picture", "Its address, or its <img …> code"),
+        new("description", "Description", "A few words from the description"),
+        new("developer", "Developer", "e.g. Ubisoft"),
+        new("publisher", "Publisher", string.Empty),
+        new("version", "Version", "e.g. v1.0.5"),
+        new("size", "Size", "e.g. 12.4 GB"),
+        new("releaseDate", "Release date", "e.g. March 3, 2024"),
+        new("updated", "Upload / updated date", string.Empty),
+        new("genres", "Genres", "e.g. Action"),
+    ];
+
+    /// <summary>Where things are on a list of games.</summary>
+    public IReadOnlyList<LearnPointerViewModel> ListPointers { get; } =
+    [
+        new("listGame", "One game's name in the list", "As the list shows it"),
+        new("nextPage", "Next page button", "Its words (\"Next\", \"»\"), or its code"),
+    ];
+
     /// <summary>The "wrong download links?" section is open.</summary>
     [ObservableProperty] private bool _learnHintsOpen;
 
@@ -102,6 +130,11 @@ public sealed partial class SiteReadersViewModel(SiteReaderCatalog catalog, Site
         {
             DownloadExamples = LearnHints.SplitExamples(LearnDownloadExamples),
             DownloadSelector = string.IsNullOrWhiteSpace(LearnDownloadSelector) ? null : LearnDownloadSelector.Trim(),
+            DownloadSnippet = string.IsNullOrWhiteSpace(LearnDownloadSnippet) ? null : LearnDownloadSnippet.Trim(),
+            PageTwoAddress = string.IsNullOrWhiteSpace(LearnPageTwo) ? null : LearnPageTwo.Trim(),
+            Pointers = PagePointers.Concat(ListPointers)
+                .Where(p => !string.IsNullOrWhiteSpace(p.Value))
+                .ToDictionary(p => p.Key, p => p.Value.Trim(), StringComparer.OrdinalIgnoreCase),
         };
         IsLearning = true;
         Lesson = null;
@@ -126,6 +159,9 @@ public sealed partial class SiteReadersViewModel(SiteReaderCatalog catalog, Site
         LearnHtml = string.Empty;
         LearnDownloadExamples = string.Empty;
         LearnDownloadSelector = string.Empty;
+        LearnDownloadSnippet = string.Empty;
+        LearnPageTwo = string.Empty;
+        foreach (var pointer in PagePointers.Concat(ListPointers)) pointer.Value = string.Empty;
         Lesson = null;
     }
 
@@ -147,6 +183,16 @@ public sealed partial class SiteReadersViewModel(SiteReaderCatalog catalog, Site
             IsTesting = false;
         }
     });
+}
+
+/// <summary>One "it's here" box: a field and what the user typed to show where it is.</summary>
+public sealed partial class LearnPointerViewModel(string key, string label, string example) : ObservableObject
+{
+    public string Key { get; } = key;
+    public string Label { get; } = label;
+    public string Watermark { get; } = example.Length > 0 ? example : "Words as the page shows them, its code, or a CSS selector";
+
+    [ObservableProperty] private string _value = string.Empty;
 }
 
 /// <summary>A reader in the list.</summary>

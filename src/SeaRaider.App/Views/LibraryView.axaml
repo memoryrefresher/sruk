@@ -32,6 +32,32 @@
         </StackPanel>
       </Border>
 
+      <!-- PC games and console games are separate parts of the library -->
+      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasConsoleGames}">
+        <Button Classes="source-tab" Classes.selected="{Binding ShowPc}" Command="{Binding ShowPcGamesCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="source-name" Text="PC games" VerticalAlignment="Center" />
+            <TextBlock Classes="muted small" Text="{Binding PcCountText}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="source-tab" Classes.selected="{Binding ShowConsoles}" Command="{Binding ShowConsoleGamesCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="source-name" Text="Consoles" VerticalAlignment="Center" />
+            <TextBlock Classes="muted small" Text="{Binding ConsoleCountText}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+
+      <TextBlock Classes="muted" IsVisible="{Binding IsPartEmpty}" Text="{Binding PartEmptyText}" />
+
+      <ItemsControl ItemsSource="{Binding Sections}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:LibrarySection">
+            <StackPanel Spacing="10" Margin="0,0,0,12">
+              <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasHeader}">
+                <TextBlock Classes="h2" Text="{Binding Header}" VerticalAlignment="Center" />
+                <TextBlock Classes="muted small" Text="{Binding CountText}" VerticalAlignment="Center" />
+              </StackPanel>
       <!-- Rows rather than tiles: the library is about playing, so the main button leads each line. -->
       <ItemsControl ItemsSource="{Binding Games}">
         <ItemsControl.ItemTemplate>
@@ -126,11 +152,18 @@
                   <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsConfirmingUninstall}">
                     <TextBlock VerticalAlignment="Center" Classes="small" Text="{Binding ConfirmText}" />
                     <Button Classes="quiet" Content="Keep" Command="{Binding CancelUninstallCommand}" />
+                    <Button Classes="quiet" Content="Uninstall, keep setup" Command="{Binding ConfirmUninstallKeepSetupCommand}"
+                            IsVisible="{Binding CanKeepSetup}"
+                            ToolTip.Tip="Remove the game but keep its downloaded setup files, so Install can run setup again without downloading" />
                     <Button Classes="danger" Content="Delete files" Command="{Binding ConfirmUninstallCommand}" />
                   </StackPanel>
                 </StackPanel>
               </Grid>
             </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+            </StackPanel>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

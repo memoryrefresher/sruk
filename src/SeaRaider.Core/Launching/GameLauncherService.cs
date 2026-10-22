@@ -29,7 +29,8 @@ public sealed class GameLauncherService(
     ISaveDataGuard saveDataGuard,
     IWebGameHost webGames,
     ILogger<GameLauncherService> logger,
-    IHttpClientFactory httpClientFactory) : IGameLauncherService, IDisposable
+    IHttpClientFactory httpClientFactory,
+    IArchiveExtractor archiveExtractor) : IGameLauncherService, IDisposable
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(3);
     private const int MissesBeforeSessionEnds = 2;
@@ -224,7 +225,15 @@ public sealed class GameLauncherService(
             .FirstOrDefault(e => string.Equals(e.SystemId, system.Id, StringComparison.OrdinalIgnoreCase) && File.Exists(e.ExePath));
 
         var useRetroArch = system.RetroArchCore is not null && (settings.PreferRetroArch || own is null);
-        if (useRetroArch && RetroArch.Locate(settings) is { } retroArch)
+        var retroArch = useRetroArch ? RetroArch.Locate(settings) : null;
+        if (useRetroArch && retroArch is null && own is null)
+        {
+            // One click: no emulator at all, so get RetroArch (portable, into SeaRaider's own folder) and carry on.
+            logger.LogInformation("No emulator for {System}: downloading RetroArch", system.Name);
+            retroArch = await RetroArch.InstallOwnAsync(httpClientFactory.CreateClient(HttpClientNames.Downloads), archiveExtractor, ct)
+                .ConfigureAwait(false);
+        }
+        if (useRetroArch && retroArch is not null)
         {
             if (!string.Equals(settings.RetroArchPath, retroArch, StringComparison.OrdinalIgnoreCase))
             {
@@ -461,7 +470,14 @@ public sealed class GameLauncherService(
     // Uninstall
     // =============================================================================================
 
-    public async Task UninstallAsync(string gameId, CancellationToken cancellationToken = default)
+    public Task UninstallAsync(string gameId, CancellationToken cancellationToken = default) =>
+        UninstallAsync(gameId, keepSetupFiles: false, cancellationToken);
+
+    /// <param name="keepSetupFiles">
+    /// Keep the downloaded setup files: the game is removed and goes back to "ready to install", so Install runs setup again
+    /// without downloading anything.
+    /// </param>
+    public async Task UninstallAsync(string gameId, bool keepSetupFiles, CancellationToken cancellationToken = default)
     {
         if (IsRunning(gameId)) throw new InvalidOperationException("Close the game before uninstalling it.");
 
@@ -498,8 +514,15 @@ public sealed class GameLauncherService(
             if (hasFolder && folderIsSafe && Directory.Exists(directory))
                 await PathSafety.DeleteDirectoryRobustAsync(directory, cancellationToken).ConfigureAwait(false);
 
-            await DeleteSetupFolderAsync(install, cancellationToken).ConfigureAwait(false);
+            var setupKept = keepSetupFiles && install.SetupDirectory is { Length: > 0 } setup && Directory.Exists(setup) &&
+                            !(hasFolder && PathSafety.IsUnder(setup, directory)); // a setup inside the game's folder went with it
+            if (!setupKept) await DeleteSetupFolderAsync(install, cancellationToken).ConfigureAwait(false);
             MarkNotInstalled(install);
+            if (setupKept)
+            {
+                install.State = GameInstallState.ReadyToInstall; // Install runs setup again
+                install.InstallerState = InstallerState.Pending;
+            }
             repository.UpsertInstall(install);
             logger.LogInformation("Uninstalled {Title} from {Dir}", install.Title, directory);
         }
@@ -682,6 +705,14 @@ public sealed class GameLauncherService(
         install.ExecutablePath = full;
         install.LaunchFileHint = Path.GetRelativePath(install.InstallDirectory, full);
         install.LastError = null;
+        if (install.State == GameInstallState.ReadyToInstall)
+        {
+            // Setup said it finished but its program wasn't found; this is it: the game is installed after all.
+            install.State = GameInstallState.Installed;
+            install.InstallerState = InstallerState.Succeeded;
+            install.InstalledAtUtc ??= DateTime.UtcNow;
+            install.SizeOnDiskBytes = PathSafety.GetDirectorySize(install.InstallDirectory);
+        }
         repository.UpsertInstall(install);
         InstallChanged?.Invoke(this, gameId);
     }

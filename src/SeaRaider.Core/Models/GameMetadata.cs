@@ -84,6 +84,9 @@ public sealed class GameMetadata
     /// <summary>Parsed release date, for sorting (null when unknown or unparseable).</summary>
     public DateTime? ReleaseDateUtc { get; set; }
 
+    /// <summary>The release date came from the game's Steam page (the page itself gave none): kept when the page is read again.</summary>
+    public bool ReleaseDateFromSteam { get; set; }
+
     /// <summary>When the source posted / uploaded this entry (post date, sitemap or API date).</summary>
     public DateTime? UploadedAtUtc { get; set; }
 

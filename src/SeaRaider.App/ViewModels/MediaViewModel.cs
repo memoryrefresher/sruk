@@ -30,6 +30,7 @@ public sealed partial class MediaViewModel : PageViewModel
         _player = player;
         _shell = shell;
         Shared = shared;
+        UiMode.Current.PropertyChanged += (_, _) => OnPropertyChanged(nameof(ShowChannelsTabButton));
 
         // Refreshes arrive in bursts (several sources at once): redraw once things settle.
         _reloadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
@@ -55,10 +56,16 @@ public sealed partial class MediaViewModel : PageViewModel
 
     /// <summary>Which part of the tab shows: Browse (everything, like the store), the sources, or what friends shared.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsBrowseTab), nameof(IsChannelsTab), nameof(IsSharedTab))]
+    [NotifyPropertyChangedFor(nameof(IsBrowseTab), nameof(IsChannelsTab), nameof(IsSharedTab), nameof(ShowChannelsTabButton))]
     private int _tab = BrowseTab;
 
     public bool IsBrowseTab => Tab == BrowseTab;
+
+    /// <summary>
+    /// The "Channels &amp; sites" tab button: managing sources is part of advanced options (Browse and Shared are what's
+    /// watched); it still shows while that tab is open (the "Add a site or channel" button leads there).
+    /// </summary>
+    public bool ShowChannelsTabButton => UiMode.Current.IsAdvanced || IsChannelsTab;
     public bool IsChannelsTab => Tab == ChannelsTab;
 
     public bool IsSharedTab
@@ -472,6 +479,19 @@ public sealed partial class MediaTileViewModel(MediaViewModel owner, MediaItem i
     /// <summary>A wide video picture fills its box; a tall poster shows whole (over a blurred copy).</summary>
     public bool FillPicture => !item.NeedsResolve;
 
+    /// <summary>
+    /// The sport's logo (a tennis ball, a football …): only when nothing better shows. A title with no poster ("Tennis
+    /// Channel"), or a match whose crests weren't found for either side.
+    /// </summary>
+    public string? SportIcon => SportIcons.For(MediaArtworkService.SportKey(item.Category, false)
+                                               ?? MediaArtworkService.SportKey(item.Title, false)
+                                               ?? (item.IsLive ? "any" : null));
+    public bool ShowSportIcon => SportIcon is not null &&
+                                 (item.IsMatchup ? !HasHomeBadge && !HasAwayBadge : !HasPoster);
+
+    /// <summary>A match's crests ("logo vs logo"), unless neither was found and its sport's logo shows instead.</summary>
+    public bool ShowMatchupPanel => item.IsMatchup && !ShowSportIcon;
+
     /// <summary>A match: the two sides' crests, "vs" between.</summary>
     public bool IsMatchup => item.IsMatchup;
     public string? HomeBadgeUrl => item.ArtworkUrl;
@@ -541,4 +561,20 @@ public sealed partial class MediaSourceChipViewModel(MediaViewModel owner, Guid?
         if (IsTypeChip) owner.ChooseType(Type);
         else owner.ChooseSource(SourceId);
     }
+}
+
+/// <summary>A sport's logo for boxes with nothing better: one emoji per sport, drawn big on the box's own background.</summary>
+public static class SportIcons
+{
+    private static readonly Dictionary<string, string> Icons = new(StringComparer.Ordinal)
+    {
+        ["football"] = "⚽", ["american-football"] = "🏈", ["afl"] = "🏉", ["basketball"] = "🏀", ["hockey"] = "🏒",
+        ["baseball"] = "⚾", ["mma"] = "🥊", ["boxing"] = "🥊", ["wrestling"] = "🤼", ["motorcycle"] = "🏍️",
+        ["motorsport"] = "🏎️", ["tennis"] = "🎾", ["table-tennis"] = "🏓", ["rugby"] = "🏉", ["golf"] = "⛳",
+        ["cricket"] = "🏏", ["darts"] = "🎯", ["cue-sports"] = "🎱", ["volleyball"] = "🏐", ["handball"] = "🤾",
+        ["cycling"] = "🚴", ["horse-racing"] = "🏇", ["esports"] = "🎮", ["badminton"] = "🏸", ["athletics"] = "🏃",
+        ["any"] = "🏟️",
+    };
+
+    public static string? For(string? sport) => sport is not null && Icons.TryGetValue(sport, out var icon) ? icon : null;
 }

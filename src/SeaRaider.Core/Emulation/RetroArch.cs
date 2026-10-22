@@ -13,6 +13,134 @@ public static class RetroArch
     /// <summary>libretro's nightly Windows cores: {core}_libretro.dll.zip.</summary>
     private const string CoreServer = "https://buildbot.libretro.com/nightly/windows/x86_64/latest/";
 
+    /// <summary>RetroArch itself (portable, 64-bit Windows) from libretro's build server.</summary>
+    private const string RetroArchDownload = "https://buildbot.libretro.com/nightly/windows/x86_64/RetroArch.7z";
+
+    /// <summary>Where SeaRaider puts its own RetroArch when none is installed: %LOCALAPPDATA%\SeaRaider\RetroArch.</summary>
+    public static string OwnFolder => Path.Combine(AppPaths.DataDirectory, "RetroArch");
+
+    /// <summary>
+    /// Gets RetroArch from libretro (portable: nothing is installed in Windows, it's just a folder SeaRaider keeps) the first
+    /// time a console game is played and none is on the PC. Returns retroarch.exe.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">It couldn't be downloaded or unpacked.</exception>
+    public static async Task<string> InstallOwnAsync(HttpClient http, Abstractions.IArchiveExtractor extractor, CancellationToken ct)
+    {
+        var existing = FindExe(OwnFolder);
+        if (existing is not null) return existing;
+        Directory.CreateDirectory(OwnFolder);
+        var archive = Path.Combine(OwnFolder, "RetroArch.7z.download");
+        var named = Path.ChangeExtension(archive, null); // "RetroArch.7z": the extractor goes by the file's type
+        try
+        {
+            using (var response = await http.GetAsync(RetroArchDownload, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
+            {
+                response.EnsureSuccessStatusCode();
+                await using var file = File.Create(archive);
+                await response.Content.CopyToAsync(file, ct).ConfigureAwait(false);
+            }
+            File.Move(archive, named, overwrite: true);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException
+                                       or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            throw new InvalidOperationException(
+                $"SeaRaider couldn't download RetroArch to play this game ({ex.Message}). Check the internet connection and press Play again, " +
+                "or install RetroArch from retroarch.com.", ex);
+        }
+
+        try
+        {
+            await extractor.ExtractAsync([named], OwnFolder, null, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // RetroArch's 7z uses compression filters (BCJ2 and newer) that SharpCompress doesn't read, and reports that as
+            // "password-protected". 7-Zip itself reads them: the one on this PC, else its small official stand-alone 7zr.exe.
+            await ExtractWithSevenZipAsync(http, named, OwnFolder, ct).ConfigureAwait(false);
+        }
+        TryDelete(named);
+        return FindExe(OwnFolder) ?? throw new InvalidOperationException("RetroArch was downloaded but retroarch.exe wasn't in it. Press Play again.");
+    }
+
+    /// <summary>7-Zip's own stand-alone extractor for .7z files (about 600 KB), from 7-zip.org.</summary>
+    private const string SevenZipStandalone = "https://www.7-zip.org/a/7zr.exe";
+
+    private static async Task ExtractWithSevenZipAsync(HttpClient http, string archive, string destination, CancellationToken ct)
+    {
+        var sevenZip = FindSevenZip();
+        try
+        {
+            if (sevenZip is null)
+            {
+                var tools = Path.Combine(AppPaths.DataDirectory, "Tools");
+                Directory.CreateDirectory(tools);
+                sevenZip = Path.Combine(tools, "7zr.exe");
+                var download = sevenZip + ".download";
+                using (var response = await http.GetAsync(SevenZipStandalone, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
+                {
+                    response.EnsureSuccessStatusCode();
+                    await using var file = File.Create(download);
+                    await response.Content.CopyToAsync(file, ct).ConfigureAwait(false);
+                }
+                File.Move(download, sevenZip, overwrite: true);
+            }
+
+            var start = new System.Diagnostics.ProcessStartInfo(sevenZip)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            start.ArgumentList.Add("x");
+            start.ArgumentList.Add(archive);
+            start.ArgumentList.Add("-o" + destination);
+            start.ArgumentList.Add("-y");
+            using var process = System.Diagnostics.Process.Start(start) ?? throw new IOException("7-Zip didn't start.");
+            var output = process.StandardOutput.ReadToEndAsync(ct);
+            var errors = process.StandardError.ReadToEndAsync(ct);
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
+            if (process.ExitCode != 0)
+            {
+                var said = (await errors.ConfigureAwait(false)).Trim();
+                if (said.Length == 0) said = (await output.ConfigureAwait(false)).Trim();
+                throw new IOException($"7-Zip stopped with code {process.ExitCode}: {said}");
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
+                                       or TaskCanceledException && !ct.IsCancellationRequested)
+        {
+            throw new InvalidOperationException(
+                $"SeaRaider downloaded RetroArch but couldn't unpack it ({ex.Message}). Press Play again, or install RetroArch from " +
+                "retroarch.com and choose it under Settings › Emulators.", ex);
+        }
+    }
+
+    /// <summary>An installed 7-Zip, or null.</summary>
+    private static string? FindSevenZip()
+    {
+        foreach (var root in new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 })
+        {
+            var path = Path.Combine(Environment.GetFolderPath(root), "7-Zip", "7z.exe");
+            if (File.Exists(path)) return path;
+        }
+        var own = Path.Combine(AppPaths.DataDirectory, "Tools", "7zr.exe");
+        return File.Exists(own) ? own : null;
+    }
+
+    private static void TryDelete(string path)
+    {
+        try { File.Delete(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* goes next time */ }
+    }
+
+    private static string? FindExe(string folder) =>
+        Directory.Exists(folder)
+            ? Directory.EnumerateFiles(folder, "retroarch.exe", new EnumerationOptions { RecurseSubdirectories = true, MaxRecursionDepth = 3, IgnoreInaccessible = true })
+                .FirstOrDefault()
+            : null;
+
     public static bool IsRetroArch(string? path) =>
         !string.IsNullOrWhiteSpace(path) && Path.GetFileNameWithoutExtension(path).StartsWith("retroarch", StringComparison.OrdinalIgnoreCase);
 
@@ -45,6 +173,7 @@ public static class RetroArch
         if (settings.RetroArchPath is { Length: > 0 } set && File.Exists(set)) return set;
         if (settings.Emulators.Select(e => e.ExePath).FirstOrDefault(p => IsRetroArch(p) && File.Exists(p)) is { } chosen) return chosen;
         if (UsualPlaces().FirstOrDefault(File.Exists) is { } usual) return usual;
+        if (FindExe(OwnFolder) is { } own) return own; // the one SeaRaider downloaded
         try
         {
             return EmulatorFinder.FindRetroArch(EmulatorFinder.DefaultFolders(settings.LibraryRoot));

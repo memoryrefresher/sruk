@@ -218,6 +218,14 @@ public sealed class ScraperService(
                 return;
             }
 
+            // A section of the site (".../files/nintendo-game-boy-advance-gba") whose entries live under it: walk that section's
+            // pages. The site's sitemap would be the whole site (news posts and all), and may not list the section at all.
+            if (itemLinks.Count(l => GamePageParser.IsChildOf(l, first.FinalUri)) >= 3)
+            {
+                await PaginateAsync(first.FinalUri, doc, ct).ConfigureAwait(false);
+                if (_discovered > 0) return;
+            }
+
             if (await CrawlSitemapsAsync(ct).ConfigureAwait(false)) return;
 
             await PaginateAsync(first.FinalUri, doc, ct).ConfigureAwait(false);

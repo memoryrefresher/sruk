@@ -319,31 +319,69 @@
               <TextBox Text="{Binding LearnAddress}" Watermark="The page's address (only needed if the page doesn't say): https://example.com/some-game/" />
               <TextBox Text="{Binding LearnHtml}" AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="90" MaxHeight="160"
                        Watermark="Paste the page's HTML here" />
-              <!-- Wrong download links? Show it the right ones. -->
+              <!-- Wrong or missing? Point it at the right things. -->
               <Border Classes="options-card">
                 <StackPanel>
                   <ToggleButton Classes="disclosure header" IsChecked="{Binding LearnHintsOpen}">
                     <Grid ColumnDefinitions="*,Auto">
                       <StackPanel Spacing="2">
-                        <TextBlock Classes="disclosure-title" Text="Picked the wrong download links?" />
-                        <TextBlock Classes="muted small" Text="Point it at the right ones, then press Learn again." />
+                        <TextBlock Classes="disclosure-title" Text="Got something wrong, or missed it?" />
+                        <TextBlock Classes="muted small" TextWrapping="Wrap"
+                                   Text="Show it where things are: the download button, the title, the next pages… then press Learn again. Fill in only what it got wrong." />
                       </StackPanel>
                       <Path Grid.Column="1" Classes="chevron" Margin="12,0,0,0" Data="M4 6 L8 10 L12 6" />
                     </Grid>
                   </ToggleButton>
-                  <StackPanel Spacing="10" Margin="0,14,0,0" IsVisible="{Binding LearnHintsOpen}">
+                  <StackPanel Spacing="16" Margin="0,14,0,0" IsVisible="{Binding LearnHintsOpen}">
+                    <TextBlock Classes="muted small" TextWrapping="Wrap"
+                               Text="Each box takes the words as the page shows them (&quot;Download&quot;, &quot;Ubisoft&quot;), a piece of the page's code from View source (Ctrl+U, find it with Ctrl+F, copy the line), or a CSS selector if you know one." />
+
+                    <!-- Download button -->
                     <StackPanel Spacing="6">
-                      <TextBlock FontWeight="SemiBold" Text="Right download links (one per line)" />
-                      <TextBox Text="{Binding LearnDownloadExamples}" AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="64" MaxHeight="120"
-                               Watermark="A link's address, or the words on its button, e.g.&#x0a;https://pixeldrain.com/u/abc123&#x0a;Mirror 1" />
+                      <TextBlock FontWeight="SemiBold" Text="Download button (on a game's page)" />
+                      <TextBox Text="{Binding LearnDownloadExamples}" AcceptsReturn="True" TextWrapping="NoWrap" MinHeight="52" MaxHeight="120"
+                               Watermark="The words on the button, or its link, one per line, e.g.&#x0a;Download&#x0a;https://pixeldrain.com/u/abc123" />
+                      <TextBox Text="{Binding LearnDownloadSnippet}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="52" MaxHeight="120"
+                               Watermark="Or its code from View source, e.g. &lt;a class=&quot;btn btn-download&quot; href=&quot;…&quot;&gt;Download&lt;/a&gt;" />
+                      <TextBox Text="{Binding LearnDownloadSelector}" Watermark="Or an exact CSS selector (advanced), e.g. .download-box a" />
                       <TextBlock Classes="muted small" TextWrapping="Wrap"
-                                 Text="Copy a link's address from the page (or from View source), or type the words on its button. SeaRaider finds it in the pasted page and reads the other links of the same kind next to it. A domain like pixeldrain.com means every link to that site." />
+                                 Text="Buttons that aren't plain links work too: a button that opens the download (onclick) or sends a form. A domain like pixeldrain.com means every link to that site." />
                     </StackPanel>
+
+                    <!-- Game page fields -->
                     <StackPanel Spacing="6">
-                      <TextBlock FontWeight="SemiBold" Text="Or an exact CSS selector (advanced)" />
-                      <TextBox Text="{Binding LearnDownloadSelector}" Watermark="e.g. .download-box a" />
+                      <TextBlock FontWeight="SemiBold" Text="On a game's page" />
+                      <ItemsControl ItemsSource="{Binding PagePointers}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:LearnPointerViewModel">
+                            <Grid ColumnDefinitions="170,*" Margin="0,0,0,6">
+                              <TextBlock Classes="small" VerticalAlignment="Center" Text="{Binding Label}" />
+                              <TextBox Grid.Column="1" Text="{Binding Value}" Watermark="{Binding Watermark}" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+
+                    <!-- List pages -->
+                    <StackPanel Spacing="6">
+                      <TextBlock FontWeight="SemiBold" Text="On the list of games" />
+                      <Grid ColumnDefinitions="170,*">
+                        <TextBlock Classes="small" VerticalAlignment="Center" Text="Second page's address" />
+                        <TextBox Grid.Column="1" Text="{Binding LearnPageTwo}" Watermark="e.g. example.com/demo/page/2/  (then page 3, 4 … are read by number)" />
+                      </Grid>
+                      <ItemsControl ItemsSource="{Binding ListPointers}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="vm:LearnPointerViewModel">
+                            <Grid ColumnDefinitions="170,*" Margin="0,0,0,6">
+                              <TextBlock Classes="small" VerticalAlignment="Center" Text="{Binding Label}" />
+                              <TextBox Grid.Column="1" Text="{Binding Value}" Watermark="{Binding Watermark}" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
                       <TextBlock Classes="muted small" TextWrapping="Wrap"
-                                 Text="Used exactly as typed, for when you know which element holds the links. If it matches nothing, you'll be told." />
+                                 Text="The second page's address can be saved on its own too: leave the HTML box empty, type it, and press Learn." />
                     </StackPanel>
                   </StackPanel>
                 </StackPanel>

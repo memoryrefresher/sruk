@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:services="using:SeaRaider.App.Services"
              xmlns:vm="using:SeaRaider.App.ViewModels"
              xmlns:views="using:SeaRaider.App.Views"
              xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
@@ -23,7 +24,7 @@
                     IsVisible="{Binding !IsSharedTab}">
           <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasSections}">
           <ProgressBar Classes="thin" Width="70" IsIndeterminate="True" VerticalAlignment="Center" IsVisible="{Binding IsRefreshing}" />
-          <Button Classes="quiet" Content="Refresh" Command="{Binding RefreshCommand}" ToolTip.Tip="Check every channel for new videos" />
+          <Button Classes="quiet" Content="Refresh" Command="{Binding RefreshCommand}" ToolTip.Tip="Check every channel for new videos" IsVisible="{Binding IsAdvanced, Source={x:Static services:UiMode.Current}}" />
           </StackPanel>
         </StackPanel>
       </Grid>
@@ -35,7 +36,7 @@
           <TextBlock Classes="source-name" Text="Browse" />
         </Button>
         <Button Classes="source-tab" Classes.selected="{Binding IsChannelsTab}" Command="{Binding ShowChannelsCommand}"
-                ToolTip.Tip="Add, refresh and remove your sites, channels, feeds and streams">
+                ToolTip.Tip="Add, refresh and remove your sites, channels, feeds and streams" IsVisible="{Binding ShowChannelsTabButton}">
           <TextBlock Classes="source-name" Text="Channels &amp; sites" />
         </Button>
         <Button Classes="source-tab" Classes.selected="{Binding IsSharedTab}" Command="{Binding ShowSharedCommand}"
@@ -163,8 +164,20 @@
                                 </Border>
                                 <!-- A poster found for the title (or the site's own picture) -->
                                 <views:FitImage AlwaysFill="True" IsVisible="{Binding HasPoster}" Url="{Binding PosterUrl}" />
+                                <!-- Nothing found for it: its sport's logo -->
+                                <Border IsVisible="{Binding ShowSportIcon}">
+                                  <Border.Background>
+                                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                      <GradientStop Offset="0" Color="#FF16324A" />
+                                      <GradientStop Offset="1" Color="#FF0B1824" />
+                                    </LinearGradientBrush>
+                                  </Border.Background>
+                                  <Viewbox Margin="26" MaxHeight="96" Stretch="Uniform">
+                                    <TextBlock Text="{Binding SportIcon}" FontSize="64" FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji" />
+                                  </Viewbox>
+                                </Border>
                                 <!-- A match: both sides' crests, "VS" between -->
-                                <Border IsVisible="{Binding IsMatchup}">
+                                <Border IsVisible="{Binding ShowMatchupPanel}">
                                   <Border.Background>
                                     <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
                                       <GradientStop Offset="0" Color="#FF16324A" />
@@ -172,6 +185,7 @@
                                       <GradientStop Offset="1" Color="#FF16324A" />
                                     </LinearGradientBrush>
                                   </Border.Background>
+                                  <Panel>
                                   <Grid RowDefinitions="*,Auto,*" Margin="22,18">
                                     <Panel>
                                       <TextBlock Text="{Binding HomeMonogram}" FontSize="30" FontWeight="Bold" Foreground="{DynamicResource MistBrush}"
@@ -186,6 +200,7 @@
                                       <Image Stretch="Uniform" IsVisible="{Binding HasAwayBadge}" img:ImageLoader.Source="{Binding AwayBadgeUrl}" />
                                     </Panel>
                                   </Grid>
+                                  </Panel>
                                 </Border>
                                 <Border Classes="live-badge" IsVisible="{Binding IsLive}" Margin="10"
                                         HorizontalAlignment="Left" VerticalAlignment="Top">
@@ -247,8 +262,20 @@
                         </Border>
                         <!-- The picture found for it (poster), else the site's: a wide one fills, a tall poster shows whole -->
                         <views:FitImage AlwaysFill="{Binding FillPicture}" IsVisible="{Binding HasPoster}" Url="{Binding PosterUrl}" />
+                        <!-- Nothing found for it: its sport's logo -->
+                        <Border IsVisible="{Binding ShowSportIcon}">
+                          <Border.Background>
+                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                              <GradientStop Offset="0" Color="#FF16324A" />
+                              <GradientStop Offset="1" Color="#FF0B1824" />
+                            </LinearGradientBrush>
+                          </Border.Background>
+                          <Viewbox Margin="26" MaxHeight="96" Stretch="Uniform">
+                            <TextBlock Text="{Binding SportIcon}" FontSize="64" FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji" />
+                          </Viewbox>
+                        </Border>
                         <!-- A match: both sides' crests side by side, "VS" between -->
-                        <Border IsVisible="{Binding IsMatchup}">
+                        <Border IsVisible="{Binding ShowMatchupPanel}">
                           <Border.Background>
                             <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
                               <GradientStop Offset="0" Color="#FF16324A" />
@@ -256,6 +283,7 @@
                               <GradientStop Offset="1" Color="#FF16324A" />
                             </LinearGradientBrush>
                           </Border.Background>
+                          <Panel>
                           <Grid ColumnDefinitions="*,Auto,*" Margin="22,18">
                             <Panel>
                               <TextBlock Text="{Binding HomeMonogram}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource MistBrush}"
@@ -270,6 +298,7 @@
                               <Image Stretch="Uniform" IsVisible="{Binding HasAwayBadge}" img:ImageLoader.Source="{Binding AwayBadgeUrl}" />
                             </Panel>
                           </Grid>
+                          </Panel>
                         </Border>
                         <Border Classes="media-play" Width="54" Height="54" CornerRadius="27"
                                 HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -395,8 +424,20 @@
                             </Border>
                             <!-- The picture found for it (poster), else the site's: a wide one fills, a tall poster shows whole -->
                             <views:FitImage AlwaysFill="{Binding FillPicture}" IsVisible="{Binding HasPoster}" Url="{Binding PosterUrl}" />
+                            <!-- Nothing found for it: its sport's logo -->
+                            <Border IsVisible="{Binding ShowSportIcon}">
+                              <Border.Background>
+                                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+                                  <GradientStop Offset="0" Color="#FF16324A" />
+                                  <GradientStop Offset="1" Color="#FF0B1824" />
+                                </LinearGradientBrush>
+                              </Border.Background>
+                              <Viewbox Margin="26" MaxHeight="96" Stretch="Uniform">
+                                <TextBlock Text="{Binding SportIcon}" FontSize="64" FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji" />
+                              </Viewbox>
+                            </Border>
                             <!-- A match: both sides' crests side by side, "VS" between -->
-                            <Border IsVisible="{Binding IsMatchup}">
+                            <Border IsVisible="{Binding ShowMatchupPanel}">
                               <Border.Background>
                                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
                                   <GradientStop Offset="0" Color="#FF16324A" />
@@ -404,6 +445,7 @@
                                   <GradientStop Offset="1" Color="#FF16324A" />
                                 </LinearGradientBrush>
                               </Border.Background>
+                              <Panel>
                               <Grid ColumnDefinitions="*,Auto,*" Margin="22,18">
                                 <Panel>
                                   <TextBlock Text="{Binding HomeMonogram}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource MistBrush}"
@@ -418,6 +460,7 @@
                                   <Image Stretch="Uniform" IsVisible="{Binding HasAwayBadge}" img:ImageLoader.Source="{Binding AwayBadgeUrl}" />
                                 </Panel>
                               </Grid>
+                              </Panel>
                             </Border>
                             <!-- Play button, shown on hover -->
                             <Border Classes="media-play" Width="54" Height="54" CornerRadius="27"

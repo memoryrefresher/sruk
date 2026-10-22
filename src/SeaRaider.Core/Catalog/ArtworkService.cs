@@ -91,8 +91,12 @@ public sealed class ArtworkService(IHttpClientFactory httpClientFactory, ILibrar
                 }
             }
             var header = found.Headers.FirstOrDefault() ?? hero;
+            var earlier = repository.GetArtwork(key); // its release date (ReleaseDateService) stays
             var record = new ArtworkRecord
             {
+                ReleaseDateUtc = earlier?.ReleaseDateUtc,
+                ReleaseDateText = earlier?.ReleaseDateText,
+                ReleaseCheckedAtUtc = earlier?.ReleaseCheckedAtUtc,
                 Key = key,
                 SteamAppId = found.SteamAppId,
                 HeaderUrl = header,

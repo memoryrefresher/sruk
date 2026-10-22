@@ -342,7 +342,9 @@ public sealed partial class GameDetailViewModel : PageViewModel, IDisposable
         {
             if (!string.IsNullOrWhiteSpace(value)) InfoPills.Add(new InfoPill(label, value));
         }
-        Add("Release date", _game.ReleaseDate ?? _game.ReleaseDateUtc?.ToString("d MMM yyyy", CultureInfo.CurrentCulture));
+        // The game's own release date only: a date that is just the day it was posted isn't one.
+        if (ReleaseDates.IsReal(_game.ReleaseDateUtc, _game.UploadedAtUtc, _game.ReleaseDateFromSteam) || _game.ReleaseDateUtc is null)
+            Add("Release date", _game.ReleaseDate ?? _game.ReleaseDateUtc?.ToString("d MMM yyyy", CultureInfo.CurrentCulture));
         Add("Uploaded", _game.UploadedAtUtc?.ToLocalTime().ToString("d MMM yyyy", CultureInfo.CurrentCulture));
         Add("Version", _game.Version is { Length: > 0 } v && char.IsDigit(v[0]) ? "v" + v : _game.Version);
         Add("DLC", _game.DlcInfo);

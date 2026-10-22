@@ -180,6 +180,12 @@ public sealed class DownloadJob
     /// </summary>
     public bool SeedingActive { get; set; }
 
+    /// <summary>
+    /// Times this download started again by itself after the connection gave out (see DownloadAndExtractManager); back to 0
+    /// when it finishes or is retried by hand.
+    /// </summary>
+    public int AutoRetries { get; set; }
+
     /// <summary>Last time progress was written to the database (crash recovery).</summary>
     public DateTime? CheckpointAtUtc { get; set; }
 

@@ -21,7 +21,7 @@
           <StackPanel Spacing="2" VerticalAlignment="Center">
             <TextBlock FontWeight="SemiBold" Text="Show advanced options" />
             <TextBlock Classes="muted small" TextWrapping="Wrap"
-                       Text="Off: everything works with one click and the defaults. On: download sources, file names, setup switches, speed limits, torrents, and technical details on downloads." />
+                       Text="Off (recommended): everything works with one click. Games download, install and get ready by themselves, console games play in RetroArch, videos play at the best quality. On: every setting and detail, including download sources and file names, setup and torrent options, speed limits, emulators, the media player's stream choice, the bet slip, and technical details on downloads." />
           </StackPanel>
           <ToggleSwitch Grid.Column="1" Margin="16,0,0,0" IsChecked="{Binding ShowAdvancedOptions}" OnContent="" OffContent="" />
         </Grid>
@@ -98,7 +98,7 @@
                 <TextBlock Classes="muted small" Text="Each game gets its own folder here, named after the game." />
               </StackPanel>
 
-              <StackPanel Spacing="8">
+              <StackPanel Spacing="8" IsVisible="{Binding ShowAdvancedOptions}">
                 <TextBlock FontWeight="SemiBold" Text="Emulators" />
                 <TextBlock Classes="muted small" TextWrapping="Wrap"
                            Text="Console games (ROMs and disc images) open in an emulator when you press Play. Choose the emulator for each system you play; the same one can serve several (RetroArch, Dolphin)." />
@@ -149,7 +149,7 @@
               <CheckBox IsChecked="{Binding PreserveInFolderSaves}"
                         Content="Back up save folders inside a game's folder before uninstalling, and restore them on reinstall" />
 
-              <StackPanel Spacing="8">
+              <StackPanel Spacing="8" IsVisible="{Binding ShowAdvancedOptions}">
                 <TextBlock FontWeight="SemiBold" Text="Screenshots and trailers" />
                 <CheckBox IsChecked="{Binding UseSteamMedia}"
                           Content="When a page has no screenshots, get them from the Steam store (matched by title)" />
@@ -162,7 +162,7 @@
               </StackPanel>
 
               <!-- Media player: how a title's player is picked on its page -->
-              <StackPanel Spacing="8">
+              <StackPanel Spacing="8" IsVisible="{Binding ShowAdvancedOptions}">
                 <TextBlock FontWeight="SemiBold" Text="Media player" />
                 <Grid ColumnDefinitions="Auto,12,*" RowDefinitions="Auto,8,Auto">
                   <TextBlock VerticalAlignment="Center" Text="Preferred player sites" />
@@ -191,7 +191,7 @@
               </StackPanel>
 
               <!-- Bet slip: the sportsbook beside the player -->
-              <StackPanel Spacing="8">
+              <StackPanel Spacing="8" IsVisible="{Binding ShowAdvancedOptions}">
                 <TextBlock FontWeight="SemiBold" Text="Bet slip" />
                 <CheckBox IsChecked="{Binding BetSlipEnabled}" Content="Bet slip beside the player (the sportsbook next to the video)" />
                 <CheckBox IsChecked="{Binding BetSlipAutoOpen}" IsEnabled="{Binding BetSlipEnabled}" Margin="28,0,0,0"
@@ -202,7 +202,7 @@
                            Text="Opens the sportsbook's own page (Roobet by default) next to what's playing, so you can follow the match and your bet slip together. You sign in on the site with your own account; SeaRaider never sees it, and the sign-in is remembered in its own browser profile. The address can name what's playing: {query} (the title), {home} and {away} (a match's sides). 18+ and only where the site is allowed: check its terms for your country." />
               </StackPanel>
 
-              <StackPanel Spacing="6">
+              <StackPanel Spacing="6" IsVisible="{Binding ShowAdvancedOptions}">
                 <TextBlock FontWeight="SemiBold" Text="Desktop shortcuts" />
                 <CheckBox IsChecked="{Binding RouteGameShortcuts}"
                           Content="Start games' desktop shortcuts through SeaRaider (play time, and friends see what you're playing)" />

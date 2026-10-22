@@ -118,6 +118,7 @@ public sealed class LiteDbLibraryRepository : ILibraryRepository, IDisposable
                 {
                     // Fresh full record wins, but keep facts only the old record knew.
                     game.UploadedAtUtc ??= existing.UploadedAtUtc;
+                    KeepSteamRelease(game, existing);
                     game.CoverImageUrl ??= existing.CoverImageUrl;
                     if (game.ScreenshotUrls.Count == 0) game.ScreenshotUrls = existing.ScreenshotUrls;
                     result = game;
@@ -126,6 +127,7 @@ public sealed class LiteDbLibraryRepository : ILibraryRepository, IDisposable
                 {
                     // Stub replaces stub (newer title / cover / excerpt).
                     game.UploadedAtUtc ??= existing.UploadedAtUtc;
+                    KeepSteamRelease(game, existing);
                     game.CoverImageUrl ??= existing.CoverImageUrl;
                     result = game;
                 }
@@ -149,6 +151,15 @@ public sealed class LiteDbLibraryRepository : ILibraryRepository, IDisposable
         if (changed.Count > 0)
             CatalogEntriesChanged?.Invoke(this, new CatalogEntriesChangedEventArgs(changed.Select(CatalogEntry.From).ToList(), [], false));
         return changed;
+    }
+
+    /// <summary>A release date looked up on Steam stays when the page is read again and still gives none.</summary>
+    private static void KeepSteamRelease(GameMetadata game, GameMetadata existing)
+    {
+        if (game.ReleaseDateUtc is not null || !existing.ReleaseDateFromSteam) return;
+        game.ReleaseDate = existing.ReleaseDate;
+        game.ReleaseDateUtc = existing.ReleaseDateUtc;
+        game.ReleaseDateFromSteam = true;
     }
 
     public IReadOnlyList<CatalogEntry> GetCatalogEntries() => _catalog.FindAll().ToList();

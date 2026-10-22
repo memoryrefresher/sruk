@@ -28,6 +28,7 @@ public sealed partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         _services = ConfigureServices();
+        UiMode.Current.Attach(_services.GetRequiredService<SeaRaider.Core.Abstractions.ILibraryRepository>()); // simple / advanced everywhere
 
         // Cover art & screenshots are cached on disk so the store renders offline.
         // Named like a browser app: some image servers (Wikimedia's, used for the Media tab's crests and posters) refuse
