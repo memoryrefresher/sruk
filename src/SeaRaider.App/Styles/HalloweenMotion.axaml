@@ -1,0 +1,128 @@
+<!--
+  Hallow's Eve, in motion (loaded only with the Hallow's Eve skin and Animations on; EffectsService). Everything is slow and
+  small: the moon breathes, bats drift, mist rolls along the bottom, a few embers rise, and the selected page's bar flickers
+  like a candle. Nothing moves near what you read or click.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- The moon's glow breathes -->
+  <Style Selector="Ellipse.hw-moon-halo">
+    <Style.Animations>
+      <Animation Duration="0:0:9" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="Opacity" Value="0.07" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0.16" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Ellipse.hw-moon">
+    <Style.Animations>
+      <Animation Duration="0:0:13" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="Opacity" Value="0.17" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0.24" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Bats drift and bob, each at its own pace -->
+  <Style Selector="Path.hw-bat1">
+    <Style.Animations>
+      <Animation Duration="0:0:16" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.X" Value="-18" /><Setter Property="TranslateTransform.Y" Value="4" /></KeyFrame>
+        <KeyFrame Cue="50%"><Setter Property="TranslateTransform.X" Value="8" /><Setter Property="TranslateTransform.Y" Value="-6" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.X" Value="26" /><Setter Property="TranslateTransform.Y" Value="2" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Path.hw-bat2">
+    <Style.Animations>
+      <Animation Duration="0:0:21" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.X" Value="14" /><Setter Property="TranslateTransform.Y" Value="-3" /></KeyFrame>
+        <KeyFrame Cue="50%"><Setter Property="TranslateTransform.X" Value="-6" /><Setter Property="TranslateTransform.Y" Value="5" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.X" Value="-22" /><Setter Property="TranslateTransform.Y" Value="-2" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Path.hw-bat3">
+    <Style.Animations>
+      <Animation Duration="0:0:12" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.X" Value="-10" /><Setter Property="TranslateTransform.Y" Value="-4" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.X" Value="16" /><Setter Property="TranslateTransform.Y" Value="5" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Mist rolls slowly along the bottom -->
+  <Style Selector="Border.hw-mist">
+    <Style.Animations>
+      <Animation Duration="0:0:40" IterationCount="INFINITE" PlaybackDirection="Alternate" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.X" Value="0" /><Setter Property="Opacity" Value="0.45" /></KeyFrame>
+        <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.65" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.X" Value="260" /><Setter Property="Opacity" Value="0.45" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- Embers rise and fade, one after another -->
+  <Style Selector="Ellipse.hw-ember1">
+    <Style.Animations>
+      <Animation Duration="0:0:7" IterationCount="INFINITE" Easing="SineEaseOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.Y" Value="0" /><Setter Property="TranslateTransform.X" Value="0" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+        <KeyFrame Cue="20%"><Setter Property="Opacity" Value="0.55" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.Y" Value="-220" /><Setter Property="TranslateTransform.X" Value="18" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Ellipse.hw-ember2">
+    <Style.Animations>
+      <Animation Duration="0:0:9" Delay="0:0:2" IterationCount="INFINITE" Easing="SineEaseOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.Y" Value="0" /><Setter Property="TranslateTransform.X" Value="0" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+        <KeyFrame Cue="25%"><Setter Property="Opacity" Value="0.45" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.Y" Value="-240" /><Setter Property="TranslateTransform.X" Value="-14" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Ellipse.hw-ember3">
+    <Style.Animations>
+      <Animation Duration="0:0:8" Delay="0:0:4" IterationCount="INFINITE" Easing="SineEaseOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.Y" Value="0" /><Setter Property="TranslateTransform.X" Value="0" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+        <KeyFrame Cue="20%"><Setter Property="Opacity" Value="0.6" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.Y" Value="-200" /><Setter Property="TranslateTransform.X" Value="22" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Ellipse.hw-ember4">
+    <Style.Animations>
+      <Animation Duration="0:0:10" Delay="0:0:1" IterationCount="INFINITE" Easing="SineEaseOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.Y" Value="0" /><Setter Property="TranslateTransform.X" Value="0" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+        <KeyFrame Cue="25%"><Setter Property="Opacity" Value="0.4" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.Y" Value="-250" /><Setter Property="TranslateTransform.X" Value="-10" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Ellipse.hw-ember5">
+    <Style.Animations>
+      <Animation Duration="0:0:7.5" Delay="0:0:5" IterationCount="INFINITE" Easing="SineEaseOut">
+        <KeyFrame Cue="0%"><Setter Property="TranslateTransform.Y" Value="0" /><Setter Property="TranslateTransform.X" Value="0" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+        <KeyFrame Cue="20%"><Setter Property="Opacity" Value="0.5" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="TranslateTransform.Y" Value="-210" /><Setter Property="TranslateTransform.X" Value="12" /><Setter Property="Opacity" Value="0" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- The selected page's bar flickers softly, like a candle -->
+  <Style Selector="ListBox.rail ListBoxItem:selected Border.rail-marker">
+    <Style.Animations>
+      <Animation Duration="0:0:3.2" IterationCount="INFINITE">
+        <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+        <KeyFrame Cue="18%"><Setter Property="Opacity" Value="0.82" /></KeyFrame>
+        <KeyFrame Cue="27%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+        <KeyFrame Cue="61%"><Setter Property="Opacity" Value="0.9" /></KeyFrame>
+        <KeyFrame Cue="70%"><Setter Property="Opacity" Value="0.76" /></KeyFrame>
+        <KeyFrame Cue="78%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+</Styles>

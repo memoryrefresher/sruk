@@ -1,0 +1,172 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="SeaRaider.App.Views.LibraryView"
+             x:DataType="vm:LibraryViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="32,4,32,40" Spacing="20">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="h1" Text="Library" />
+          <TextBlock Classes="muted" Text="{Binding Summary}" />
+        </StackPanel>
+        <Button Grid.Column="1" Classes="quiet" VerticalAlignment="Center"
+                Content="Open library folder" Command="{Binding OpenLibraryFolderCommand}" />
+      </Grid>
+
+      <Border Classes="error-banner" IsVisible="{Binding HasError}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+          <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+        </Grid>
+      </Border>
+
+      <Border Classes="panel" Padding="40" IsVisible="{Binding IsEmpty}">
+        <StackPanel Spacing="10" MaxWidth="520" HorizontalAlignment="Left">
+          <TextBlock Classes="h2" Text="Nothing installed yet" />
+          <TextBlock Classes="body muted"
+                     Text="Pick a game in the Store and choose Download &amp; Install. It appears here as soon as it's ready to play, or ready to install if it's a setup program." />
+        </StackPanel>
+      </Border>
+
+      <!-- PC games and console games are separate parts of the library -->
+      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasConsoleGames}">
+        <Button Classes="source-tab" Classes.selected="{Binding ShowPc}" Command="{Binding ShowPcGamesCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="source-name" Text="PC games" VerticalAlignment="Center" />
+            <TextBlock Classes="muted small" Text="{Binding PcCountText}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="source-tab" Classes.selected="{Binding ShowConsoles}" Command="{Binding ShowConsoleGamesCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="source-name" Text="Consoles" VerticalAlignment="Center" />
+            <TextBlock Classes="muted small" Text="{Binding ConsoleCountText}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+
+      <TextBlock Classes="muted" IsVisible="{Binding IsPartEmpty}" Text="{Binding PartEmptyText}" />
+
+      <ItemsControl ItemsSource="{Binding Sections}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:LibrarySection">
+            <StackPanel Spacing="10" Margin="0,0,0,12">
+              <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasHeader}">
+                <TextBlock Classes="h2" Text="{Binding Header}" VerticalAlignment="Center" />
+                <TextBlock Classes="muted small" Text="{Binding CountText}" VerticalAlignment="Center" />
+              </StackPanel>
+      <!-- Rows rather than tiles: the library is about playing, so the main button leads each line. -->
+      <ItemsControl ItemsSource="{Binding Games}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:InstalledGameViewModel">
+            <Border Classes="panel" Padding="0" Margin="0,0,0,12" ClipToBounds="True">
+              <Grid ColumnDefinitions="200,*,Auto">
+
+                <Border Background="{DynamicResource CoverPlaceholderBrush}" MinHeight="104">
+                  <Image Stretch="UniformToFill" IsVisible="{Binding HasCover}" img:ImageLoader.Source="{Binding CoverImageUrl}" />
+                </Border>
+
+                <StackPanel Grid.Column="1" Margin="22,14" VerticalAlignment="Center" Spacing="4">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Classes="h2" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                    <Border Classes="chip owned" IsVisible="{Binding IsRunning}" VerticalAlignment="Center">
+                      <TextBlock Text="Running" />
+                    </Border>
+                    <Border Classes="chip" IsVisible="{Binding IsSetupReady}" VerticalAlignment="Center">
+                      <TextBlock Text="Needs setup" />
+                    </Border>
+                  </StackPanel>
+                  <TextBlock Classes="brass small" FontWeight="SemiBold" Text="{Binding PlaytimeText}" />
+                  <TextBlock Classes="muted small" Text="{Binding DetailText}" TextWrapping="Wrap" />
+
+                  <!-- Installer options for downloaded setups -->
+                  <StackPanel Orientation="Horizontal" Spacing="16" IsVisible="{Binding IsSetupReady}">
+                    <CheckBox IsChecked="{Binding SilentInstall}" IsEnabled="{Binding CanInstallSilently}"
+                              Content="Install silently" FontSize="13" />
+                    <ProgressBar Classes="thin" IsIndeterminate="True" Width="160" VerticalAlignment="Center"
+                                 IsVisible="{Binding IsInstalling}" />
+                  </StackPanel>
+
+                  <!-- Running setup: what it's doing, and the way out when it stalls -->
+                  <Border Classes="setup-status" Classes.attention="{Binding SetupNeedsAttention}" IsVisible="{Binding HasSetupActivity}">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="small" TextWrapping="Wrap" MaxWidth="560" Text="{Binding SetupActivityText}" />
+                      <StackPanel Orientation="Horizontal" Spacing="14">
+                        <Button Classes="link" FontSize="12" Content="Show setup window" IsVisible="{Binding CanShowSetupWindow}"
+                                Command="{Binding ShowSetupWindowCommand}" />
+                        <Button Classes="link" FontSize="12" Content="Restart with wizard" IsVisible="{Binding CanRestartWithWizard}"
+                                ToolTip.Tip="Close the silent setup and run it again with its normal wizard"
+                                Command="{Binding RestartWithWizardCommand}" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+
+                  <!-- Uninstall in progress: its uninstaller may be waiting for an answer -->
+                  <Border Classes="setup-status" IsVisible="{Binding IsUninstalling}">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="small" TextWrapping="Wrap" MaxWidth="560" Text="{Binding UninstallStatusText}" />
+                      <Button Classes="link" FontSize="12" Content="Stop waiting and delete the files"
+                              ToolTip.Tip="Use this if the uninstaller has closed or is stuck"
+                              Command="{Binding StopWaitingForUninstallerCommand}" />
+                    </StackPanel>
+                  </Border>
+
+                  <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding HasWarning}">
+                    <TextBlock Classes="coral small" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="520" Text="{Binding Warning}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="14" IsVisible="{Binding CanSetLaunchFile}">
+                    <Button Classes="link" FontSize="12" Content="Set launch file (.exe / .bat)"
+                            ToolTip.Tip="Pick the program or batch file that starts this game"
+                            Command="{Binding ChooseExecutableCommand}" />
+                    <Button Classes="link" FontSize="12" Content="Detect automatically"
+                            ToolTip.Tip="Forget the chosen file and let SeaRaider find the game's program"
+                            Command="{Binding DetectExecutableCommand}" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasSetupFiles}">
+                    <TextBlock Classes="muted small" VerticalAlignment="Center" Text="Its setup files are still on disk." />
+                    <Button Classes="link" FontSize="12" Content="Delete setup files" Command="{Binding DeleteSetupFilesCommand}"
+                            IsEnabled="{Binding !IsDeletingSetupFiles}"
+                            ToolTip.Tip="Not needed to play. Keep them only if you might reinstall without downloading again." />
+                  </StackPanel>
+                  <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding HasError}" Text="{Binding ErrorMessage}" />
+                </StackPanel>
+
+                <!-- Actions -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" Margin="0,0,22,0" VerticalAlignment="Center">
+                  <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding !IsConfirmingUninstall}">
+                    <Button Classes="quiet" Content="Folder" Command="{Binding OpenFolderCommand}" />
+                    <Button Classes="quiet" Content="{Binding RemoveLabel}" Command="{Binding RequestUninstallCommand}"
+                            IsEnabled="{Binding !IsUninstalling}" />
+                    <!-- Setup waiting: "Install" (action colour). Playable: "Play" (brass). -->
+                    <Border Classes="glow" IsVisible="{Binding IsSetupReady}">
+                      <Button Classes="primary" MinWidth="110" Content="{Binding InstallLabel}"
+                              Command="{Binding InstallCommand}" IsEnabled="{Binding CanInstall}" />
+                    </Border>
+                    <Button Classes="brass" MinWidth="110" HorizontalContentAlignment="Center" IsVisible="{Binding IsPlayable}"
+                            Content="{Binding PlayLabel}" Command="{Binding PlayCommand}" IsEnabled="{Binding CanPlay}" />
+                  </StackPanel>
+                  <!-- Inline confirmation (no modal dialog) -->
+                  <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsConfirmingUninstall}">
+                    <TextBlock VerticalAlignment="Center" Classes="small" Text="{Binding ConfirmText}" />
+                    <Button Classes="quiet" Content="Keep" Command="{Binding CancelUninstallCommand}" />
+                    <Button Classes="quiet" Content="Uninstall, keep setup" Command="{Binding ConfirmUninstallKeepSetupCommand}"
+                            IsVisible="{Binding CanKeepSetup}"
+                            ToolTip.Tip="Remove the game but keep its downloaded setup files, so Install can run setup again without downloading" />
+                    <Button Classes="danger" Content="Delete files" Command="{Binding ConfirmUninstallCommand}" />
+                  </StackPanel>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

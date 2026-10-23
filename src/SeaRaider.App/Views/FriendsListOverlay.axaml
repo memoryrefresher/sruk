@@ -1,0 +1,386 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:views="using:SeaRaider.App.Views"
+             xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             DragDrop.AllowDrop="True"
+             x:Class="SeaRaider.App.Views.FriendsListOverlay"
+             x:DataType="vm:FriendsViewModel">
+
+  <!-- Friends & Chat: a Steam-overlay-style side panel. List view, or one conversation. -->
+  <Border Classes="friends-overlay">
+    <Grid RowDefinitions="Auto,Auto,*">
+
+      <!-- Me: avatar, name, status, friend code ====================================================== -->
+      <Border Classes="friends-header">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <!-- Your picture: click to change it or its decoration -->
+            <Button Classes="bare" Padding="0" Width="64" Height="64" ToolTip.Tip="Profile picture and decoration">
+              <views:AvatarView Picture="{Binding MyPicture}" Initial="{Binding Initial}" Decoration="{Binding MyDecoration}" />
+              <Button.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                  <MenuItem Header="Choose picture…" Command="{Binding ChoosePictureCommand}" />
+                  <MenuItem Header="Remove picture" Command="{Binding RemovePictureCommand}" IsVisible="{Binding HasMyPicture}" />
+                  <MenuItem Header="Decoration">
+                    <MenuItem Header="None" Command="{Binding SetDecorationCommand}" CommandParameter="none" />
+                    <MenuItem Header="Glow ring" Command="{Binding SetDecorationCommand}" CommandParameter="ring" />
+                    <MenuItem Header="Sea waves" Command="{Binding SetDecorationCommand}" CommandParameter="waves" />
+                    <MenuItem Header="Neon" Command="{Binding SetDecorationCommand}" CommandParameter="neon" />
+                    <MenuItem Header="Gold laurel" Command="{Binding SetDecorationCommand}" CommandParameter="gold" />
+                    <MenuItem Header="Crown" Command="{Binding SetDecorationCommand}" CommandParameter="crown" />
+                    <MenuItem Header="Hallow's Eve 🎃" Command="{Binding SetDecorationCommand}" CommandParameter="halloween" />
+                  </MenuItem>
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
+            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+              <TextBox Classes="name-edit" Text="{Binding MyName}" Watermark="Your name">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding SaveNameCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Ellipse Classes="presence-dot" Classes.online="{Binding MyIsOnline}" Classes.away="{Binding MyIsAway}"
+                         Classes.ingame="{Binding MyIsInGame}" Classes.watching="{Binding MyIsWatching}" />
+                <TextBlock Classes="small presence-text" Classes.ingame="{Binding MyIsInGame}" Classes.watching="{Binding MyIsWatching}"
+                           Text="{Binding MyStatusText}" />
+              </StackPanel>
+            </StackPanel>
+            <Button Grid.Column="2" Classes="icon" VerticalAlignment="Top" ToolTip.Tip="Close (Ctrl+Shift+F)" Command="{Binding CloseCommand}">
+              <Path Data="M4 4 L12 12 M12 4 L4 12" />
+            </Button>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,Auto">
+            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{x:Static vm:FriendsViewModel.PresenceChoices}"
+                      SelectedItem="{Binding SelectedPresence}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:PresenceChoice">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </Grid>
+
+          <Border Classes="friend-code">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="1">
+                <TextBlock Classes="muted small" Text="Your friend code" />
+                <SelectableTextBlock FontFamily="Consolas, Menlo, monospace" FontSize="14" FontWeight="SemiBold" Text="{Binding FriendCode}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Classes="brass small" VerticalAlignment="Center" Text="{Binding CopyFeedback}" />
+                <Button Classes="quiet" Padding="10,5" Content="Copy" Command="{Binding CopyFriendCodeCommand}" />
+              </StackPanel>
+            </Grid>
+          </Border>
+        </StackPanel>
+      </Border>
+
+      <!-- Connection state / errors ================================================================ -->
+      <StackPanel Grid.Row="1" Margin="16,0,16,0" Spacing="8">
+        <Border Classes="setup-status" Classes.attention="{Binding IsNotConfigured}" IsVisible="{Binding HasConnectionText}"
+                HorizontalAlignment="Stretch" Margin="0,10,0,0">
+          <StackPanel Spacing="6">
+            <TextBlock Classes="small" TextWrapping="Wrap" Text="{Binding ConnectionText}" />
+            <Button Classes="link" FontSize="12" Content="Friends settings" IsVisible="{Binding IsNotConfigured}"
+                    Command="{Binding OpenFriendSettingsCommand}" />
+          </StackPanel>
+        </Border>
+        <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding HasError}" Text="{Binding ErrorMessage}" Margin="0,8,0,0" />
+      </StackPanel>
+
+      <!-- List view ================================================================================ -->
+      <ScrollViewer Grid.Row="2" IsVisible="{Binding IsListVisible}" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="16,14,16,20" Spacing="16">
+
+          <!-- Add a friend -->
+          <StackPanel Spacing="6">
+            <TextBlock Classes="section-title" Text="ADD A FRIEND" />
+            <TextBox Text="{Binding AddFriendCode}" Watermark="Friend code, e.g. SR-7K3QM-9XPAD" />
+            <TextBox Text="{Binding AddFriendMessage}" Watermark="Say hi (optional)" />
+            <Button Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Content="Send friend request"
+                    Command="{Binding AddFriendCommand}" IsEnabled="{Binding IsConnected}" />
+          </StackPanel>
+
+          <!-- Incoming requests -->
+          <StackPanel Spacing="8" IsVisible="{Binding HasIncoming}">
+            <TextBlock Classes="section-title" Text="FRIEND REQUESTS" />
+            <ItemsControl ItemsSource="{Binding IncomingRequests}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:FriendItemViewModel">
+                  <Border Classes="friend-request" Margin="0,0,0,8">
+                    <StackPanel Spacing="8">
+                      <Grid ColumnDefinitions="Auto,*">
+                        <views:AvatarView Width="46" Height="46" Picture="{Binding Picture}" Initial="{Binding Initial}" Decoration="{Binding Decoration}" />
+                        <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                          <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Classes="muted small" Text="wants to be friends" />
+                        </StackPanel>
+                      </Grid>
+                      <TextBlock Classes="small" TextWrapping="Wrap" FontStyle="Italic" IsVisible="{Binding HasRequestMessage}"
+                                 Text="{Binding RequestMessage}" />
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Classes="primary" Padding="14,6" Content="Accept" Command="{Binding AcceptCommand}" />
+                        <Button Classes="quiet" Padding="14,6" Content="Decline" Command="{Binding DeclineCommand}" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <!-- Friends -->
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="section-title" Text="FRIENDS" />
+              <TextBlock Grid.Column="1" Classes="muted small" Text="{Binding OnlineSummary}" />
+            </Grid>
+            <TextBlock Classes="muted small" TextWrapping="Wrap" IsVisible="{Binding !HasFriends}"
+                       Text="No friends yet. Share your friend code, or add theirs above." />
+            <ItemsControl ItemsSource="{Binding Friends}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:FriendItemViewModel">
+                  <Button Classes="friend-row" Classes.offline="{Binding IsOffline}" Command="{Binding ChatCommand}">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                      <Panel>
+                        <views:AvatarView Width="46" Height="46" Picture="{Binding Picture}" Initial="{Binding Initial}" Decoration="{Binding Decoration}" />
+                        <Ellipse Classes="presence-dot badge" Classes.online="{Binding IsOnline}" Classes.ingame="{Binding IsInGame}"
+                                 Classes.away="{Binding IsAway}" Classes.watching="{Binding ShowWatching}"
+                                 HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                      </Panel>
+                      <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                        <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="small presence-text" Classes.ingame="{Binding IsInGame}" Classes.watching="{Binding ShowWatching}"
+                                   Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Classes="quiet" Padding="8,3" FontSize="11" Content="Watch along" IsVisible="{Binding IsWatching}"
+                                Command="{Binding WatchAlongCommand}" ToolTip.Tip="Watch it with them, in sync" />
+                        <Border Classes="unread" IsVisible="{Binding HasUnread}" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding UnreadCount}" />
+                        </Border>
+                      </StackPanel>
+                    </Grid>
+                    <Button.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="Message" Command="{Binding ChatCommand}" />
+                        <MenuItem Header="Watch along" IsVisible="{Binding IsWatching}" Command="{Binding WatchAlongCommand}" />
+                        <MenuItem Header="{Binding InviteToPlayText}" IsVisible="{Binding CanInviteToPlay}" Command="{Binding InviteToPlayCommand}" />
+                        <MenuItem Header="Remove friend" Command="{Binding RemoveCommand}" />
+                      </ContextMenu>
+                    </Button.ContextMenu>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <!-- Sent requests -->
+          <StackPanel Spacing="6" IsVisible="{Binding HasOutgoing}">
+            <TextBlock Classes="section-title" Text="SENT REQUESTS" />
+            <ItemsControl ItemsSource="{Binding OutgoingRequests}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:FriendItemViewModel">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                    <StackPanel VerticalAlignment="Center">
+                      <TextBlock Classes="small" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="muted small" FontSize="11" Text="Waiting for them to accept" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="link" FontSize="12" Content="Cancel" Command="{Binding RemoveCommand}" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Chat view ================================================================================ -->
+      <Grid Grid.Row="2" RowDefinitions="Auto,*,Auto" IsVisible="{Binding IsChatOpen}">
+        <Border Classes="chat-header">
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+            <Button Classes="icon" ToolTip.Tip="Back to friends" Command="{Binding CloseChatCommand}">
+              <Path Data="M10 3 L5 8 L10 13" />
+            </Button>
+            <Panel Grid.Column="1" Margin="6,0,10,0">
+              <views:AvatarView Width="46" Height="46" Picture="{Binding ActiveFriend.Picture}" Initial="{Binding ActiveFriend.Initial}"
+                                Decoration="{Binding ActiveFriend.Decoration}" />
+              <Ellipse Classes="presence-dot badge" Classes.online="{Binding ActiveFriend.IsOnline}"
+                       Classes.ingame="{Binding ActiveFriend.IsInGame}" Classes.away="{Binding ActiveFriend.IsAway}" Classes.watching="{Binding ActiveFriend.ShowWatching}"
+                       HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+            </Panel>
+            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+              <TextBlock FontWeight="SemiBold" Text="{Binding ActiveFriend.Name}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Classes="small presence-text" Classes.ingame="{Binding ActiveFriend.IsInGame}"
+                         Classes.watching="{Binding ActiveFriend.ShowWatching}"
+                         Text="{Binding ActiveFriend.StatusText}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0,0,0">
+              <Button Classes="quiet" Padding="8,4" FontSize="11" Content="Watch along"
+                      IsVisible="{Binding ActiveFriend.IsWatching, FallbackValue=False}" Command="{Binding WatchAlongActiveCommand}"
+                      ToolTip.Tip="Watch what they're watching, in sync" />
+              <Button Classes="quiet" Padding="8,4" FontSize="11" Content="Invite"
+                      IsVisible="{Binding ActiveFriend.CanInviteToPlay, FallbackValue=False}" Command="{Binding InviteActiveToPlayCommand}"
+                      ToolTip.Tip="{Binding InviteToPlayText}" />
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" x:Name="MessageScroller" HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding Messages}" Margin="12,10,12,10">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ChatMessageViewModel">
+                <StackPanel Margin="0,0,0,10" Spacing="2" MaxWidth="290" Classes="message" Classes.mine="{Binding IsOutgoing}">
+                  <!-- A shared game: a small store card -->
+                  <Border Classes="share-card" IsVisible="{Binding IsShare}">
+                    <StackPanel>
+                      <Border Height="110" ClipToBounds="True" Background="{DynamicResource CoverPlaceholderBrush}">
+                        <views:FitImage Url="{Binding SharedCover}" IsVisible="{Binding HasSharedCover}" />
+                      </Border>
+                      <StackPanel Margin="12,10,12,12" Spacing="4">
+                        <TextBlock Classes="muted" FontSize="11" Text="{Binding ShareHeading}" />
+                        <TextBlock FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" MaxLines="2" Text="{Binding SharedTitle}" />
+                        <TextBlock Classes="muted" FontSize="11" Text="{Binding SharedDetail}" TextTrimming="CharacterEllipsis" />
+                        <Button Classes="primary" Margin="0,6,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Padding="10,6" Content="Open in store" Command="{Binding OpenSharedCommand}" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                  <!-- A video, stream or title from the Media tab: plays in SeaRaider's player -->
+                  <Border Classes="share-card" IsVisible="{Binding IsMediaShare}">
+                    <StackPanel>
+                      <Border Height="130" ClipToBounds="True" Background="{DynamicResource CoverPlaceholderBrush}">
+                        <Panel>
+                          <views:FitImage Url="{Binding MediaPicture}" IsVisible="{Binding HasMediaPicture}" />
+                          <Grid ColumnDefinitions="*,Auto,*" Margin="18,14" IsVisible="{Binding IsMediaMatchup}">
+                            <Image Stretch="Uniform" img:ImageLoader.Source="{Binding MediaBadge1}" />
+                            <TextBlock Grid.Column="1" Text="VS" FontWeight="Black" Margin="12,0" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BiolumeBrush}" />
+                            <Image Grid.Column="2" Stretch="Uniform" img:ImageLoader.Source="{Binding MediaBadge2}" />
+                          </Grid>
+                          <Border Classes="live-badge" IsVisible="{Binding IsMediaLive}" Margin="8"
+                                  HorizontalAlignment="Left" VerticalAlignment="Top">
+                            <TextBlock Text="LIVE" />
+                          </Border>
+                        </Panel>
+                      </Border>
+                      <StackPanel Margin="12,10,12,12" Spacing="4">
+                        <TextBlock Classes="muted" FontSize="11" Text="{Binding MediaHeading}" />
+                        <TextBlock FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                   Text="{Binding MediaTitle}" />
+                        <TextBlock Classes="muted" FontSize="11" Text="{Binding MediaDetail}" TextTrimming="CharacterEllipsis" />
+                        <Button Classes="primary" Margin="0,6,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Padding="10,6" Content="▶ Play" Command="{Binding PlayMediaCommand}" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                  <!-- An invite to play or watch along -->
+                  <Border Classes="invite-card" IsVisible="{Binding IsInvite}">
+                    <StackPanel>
+                      <Border Height="100" ClipToBounds="True" Background="{DynamicResource CoverPlaceholderBrush}" IsVisible="{Binding HasInviteCover}">
+                        <views:FitImage Url="{Binding InviteCover}" />
+                      </Border>
+                      <StackPanel Margin="12,10,12,12" Spacing="4">
+                        <TextBlock Classes="muted" FontSize="11" Text="{Binding InviteHeading}" />
+                        <TextBlock FontWeight="SemiBold" FontSize="14" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                   Text="{Binding InviteTitle}" />
+                        <TextBlock Classes="muted" FontSize="11" Text="{Binding InviteDetail}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="brass" FontSize="11" Text="{Binding InviteState}" TextWrapping="Wrap" />
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                          <Button Classes="primary" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="10,6"
+                                  Content="{Binding AcceptText}" IsVisible="{Binding CanAccept}" Command="{Binding AcceptInviteCommand}" />
+                          <Button Grid.Column="1" Classes="quiet" Margin="8,0,0,0" Padding="10,6" Content="Decline"
+                                  IsVisible="{Binding CanDecline}" Command="{Binding DeclineInviteCommand}" />
+                        </Grid>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                  <Border Classes="bubble" Classes.mine="{Binding IsOutgoing}" Classes.emote-only="{Binding IsEmoteOnly}"
+                          IsVisible="{Binding IsText}">
+                    <ItemsControl ItemsSource="{Binding Segments}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChatSegmentViewModel">
+                          <Panel>
+                            <TextBlock Classes="chat-text" Text="{Binding Text}" TextWrapping="Wrap" IsVisible="{Binding IsText}" />
+                            <TextBlock Classes="emote" IsVisible="{Binding IsEmote}" Text="{Binding Text}"
+                                       Classes.bounce="{Binding IsBounce}" Classes.wobble="{Binding IsWobble}"
+                                       Classes.pulse="{Binding IsPulse}" Classes.spin="{Binding IsSpin}"
+                                       Classes.float="{Binding IsFloat}" Classes.shake="{Binding IsShake}" />
+                          </Panel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Border>
+                  <StackPanel Orientation="Horizontal" Spacing="6" Margin="4,0">
+                    <TextBlock Classes="muted" FontSize="10" Text="{Binding TimeText}" />
+                    <TextBlock Classes="muted" FontSize="10" Text="{Binding DeliveryText}" />
+                    <Button Classes="link" FontSize="10" Content="Retry" IsVisible="{Binding CanRetry}" Command="{Binding RetryCommand}" />
+                  </StackPanel>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Compose: a game or video going with the message (dropped here, or "Send to a friend…"), emote picker + message box -->
+        <Border Grid.Row="2" Classes="compose">
+          <StackPanel Spacing="8">
+          <Border IsVisible="{Binding HasAttachment}" Background="{DynamicResource DeckBrush}" CornerRadius="8" Padding="6"
+                  BorderBrush="{DynamicResource BiolumeBrush}" BorderThickness="1">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <Border Width="72" Height="42" CornerRadius="5" ClipToBounds="True" Background="{DynamicResource CoverPlaceholderBrush}">
+                <views:FitImage Url="{Binding AttachmentPicture}" IsVisible="{Binding HasAttachmentPicture}" />
+              </Border>
+              <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center" Spacing="1">
+                <TextBlock Classes="muted" FontSize="10" Text="{Binding AttachmentKind}" />
+                <TextBlock FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" Text="{Binding AttachmentTitle}" />
+              </StackPanel>
+              <Button Grid.Column="2" Classes="link" Content="✕" VerticalAlignment="Center" ToolTip.Tip="Don't send it"
+                      Command="{Binding ClearAttachmentCommand}" />
+            </Grid>
+          </Border>
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Button Classes="icon" Width="34" Height="34" ToolTip.Tip="Emotes">
+              <TextBlock Text="🙂" FontSize="17" />
+              <Button.Flyout>
+                <Flyout Placement="TopEdgeAlignedLeft">
+                  <ItemsControl ItemsSource="{Binding Emotes}" Width="260">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:EmoteViewModel">
+                        <Button Classes="emote-pick" ToolTip.Tip="{Binding Tip}" Command="{Binding InsertCommand}">
+                          <TextBlock Text="{Binding Glyph}" FontSize="22" />
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+            <TextBox Grid.Column="1" Margin="6,0" Text="{Binding Draft}" Watermark="Message, or drop a game or video here"
+                     AcceptsReturn="False" MaxLength="2000">
+              <TextBox.KeyBindings>
+                <KeyBinding Gesture="Enter" Command="{Binding SendCommand}" />
+              </TextBox.KeyBindings>
+            </TextBox>
+            <Button Grid.Column="2" Classes="primary" Padding="14,8" Content="Send" Command="{Binding SendCommand}"
+                    IsEnabled="{Binding IsConnected}" />
+          </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

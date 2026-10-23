@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             x:Class="SeaRaider.App.Views.OnboardingDialog"
+             x:DataType="vm:OnboardingDialogViewModel">
+
+  <!-- First-run welcome: sources file (only when none exists yet), your name, then the two folders. -->
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <StackPanel Margin="28,26,28,6" Spacing="4">
+      <TextBlock Classes="muted small" Text="{Binding StepText}" />
+      <TextBlock Classes="h2" Text="{Binding DialogTitle}" />
+    </StackPanel>
+
+    <Panel Grid.Row="1" Margin="28,12,28,20">
+
+      <!-- 1. Sources file -->
+      <StackPanel Spacing="14" IsVisible="{Binding IsSourcesStep}">
+        <TextBlock FontWeight="SemiBold" FontSize="17" Text="Do you have a sources.txt file?" />
+        <TextBlock Classes="body muted" TextWrapping="Wrap"
+                   Text="A sources file lists the game sites SeaRaider searches, one web address per line. If someone gave you one, import it now and your store fills up straight away. You can also do this later in Settings › Sources." />
+        <StackPanel Orientation="Horizontal" Spacing="14">
+          <Border Classes="glow">
+            <Button Classes="primary" Content="Import sources.txt…" Command="{Binding ImportSourcesCommand}"
+                    IsEnabled="{Binding IsNotBusy}" />
+          </Border>
+          <ProgressBar Classes="thin" Width="90" VerticalAlignment="Center" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+        </StackPanel>
+        <TextBlock Classes="small" TextWrapping="Wrap" Text="{Binding ImportResult}"
+                   IsVisible="{Binding ImportResult, Converter={x:Static ObjectConverters.IsNotNull}}" />
+      </StackPanel>
+
+      <!-- 2. Name -->
+      <StackPanel Spacing="14" IsVisible="{Binding IsNameStep}">
+        <TextBlock FontWeight="SemiBold" FontSize="17" Text="What should we call you?" />
+        <TextBlock Classes="body muted" TextWrapping="Wrap"
+                   Text="This is the name your friends see in chat and next to the game you're playing. You can change it any time in the Friends panel." />
+        <TextBox Text="{Binding DisplayName}" Watermark="Your name" MaxLength="32" FontSize="15" />
+      </StackPanel>
+
+      <!-- 3. Folders -->
+      <StackPanel Spacing="20" IsVisible="{Binding IsFoldersStep}">
+        <TextBlock FontWeight="SemiBold" FontSize="17" Text="Where should SeaRaider keep things?" />
+        <StackPanel Spacing="6">
+          <TextBlock FontWeight="SemiBold" Text="Install games to" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Text="{Binding LibraryRoot}" />
+            <Button Grid.Column="1" Classes="quiet" Margin="10,0,0,0" Content="Browse" Command="{Binding BrowseLibraryCommand}" />
+          </Grid>
+          <TextBlock Classes="muted small" TextWrapping="Wrap" Text="Each game gets its own folder here, named after the game." />
+        </StackPanel>
+        <StackPanel Spacing="6">
+          <TextBlock FontWeight="SemiBold" Text="Temporary downloads" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Text="{Binding TempRoot}" />
+            <Button Grid.Column="1" Classes="quiet" Margin="10,0,0,0" Content="Browse" Command="{Binding BrowseTempCommand}" />
+          </Grid>
+          <TextBlock Classes="muted small" TextWrapping="Wrap"
+                     Text="Archives wait here until they're extracted. Putting this on the same drive as your library makes installs faster." />
+        </StackPanel>
+        <TextBlock Classes="muted small" TextWrapping="Wrap" Text="You can change all of this later in Settings." />
+      </StackPanel>
+    </Panel>
+
+    <StackPanel Grid.Row="2" Margin="28,0,28,24" Spacing="14">
+      <Border Classes="error-banner" IsVisible="{Binding HasError}">
+        <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+      </Border>
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <Button Classes="quiet" Content="Back" Command="{Binding BackCommand}"
+                IsVisible="{Binding CanGoBack}" IsEnabled="{Binding IsNotBusy}" />
+        <Border Grid.Column="2" Classes="glow">
+          <Button Classes="primary" Content="{Binding NextLabel}" Command="{Binding NextCommand}" IsEnabled="{Binding IsNotBusy}" />
+        </Border>
+      </Grid>
+    </StackPanel>
+  </Grid>
+</UserControl>

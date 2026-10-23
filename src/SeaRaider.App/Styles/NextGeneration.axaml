@@ -1,0 +1,305 @@
+<!--
+  Skin: "The Next Generation".
+  Glass panels over a blurred backdrop of the featured game, neon cyan for what you act on, warm amber for what you
+  own. Loaded after Theme.axaml (the "Legacy" skin) while this skin is selected, so every style and resource here
+  overrides Legacy's; switching back simply removes this file (SkinService).
+
+  Views use DynamicResource for brushes, so the palette below re-colours everything; the styles below add what a palette
+  can't: gradients, glow, larger radii, the display font, and the backdrop.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Styles.Resources>
+    <!-- Palette (same keys as Legacy) ======================================================== -->
+    <SolidColorBrush x:Key="AbyssBrush" Color="#04090F" />
+    <SolidColorBrush x:Key="RailBrush" Color="#B3060F17" />
+    <SolidColorBrush x:Key="HullBrush" Color="#990C1A23" />
+    <SolidColorBrush x:Key="DeckBrush" Color="#B3132733" />
+    <SolidColorBrush x:Key="LineBrush" Color="#4D48C9D6" />
+    <SolidColorBrush x:Key="FoamBrush" Color="#F2F7FA" />
+    <SolidColorBrush x:Key="MistBrush" Color="#9AB0BC" />
+    <SolidColorBrush x:Key="BiolumeBrush" Color="#3BE3E0" />
+    <SolidColorBrush x:Key="BiolumeBrightBrush" Color="#8AF4F1" />
+    <SolidColorBrush x:Key="BrassBrush" Color="#F7A84A" />
+    <SolidColorBrush x:Key="CoralBrush" Color="#FF7A70" />
+    <SolidColorBrush x:Key="CoralWashBrush" Color="#33FF7A70" />
+
+    <!-- A soft light over the backdrop from the top -->
+    <RadialGradientBrush x:Key="BackdropTintBrush" Center="70%,10%" GradientOrigin="70%,10%" RadiusX="70%" RadiusY="70%">
+      <GradientStop Offset="0" Color="#262AB8BC" />
+      <GradientStop Offset="1" Color="#0004090F" />
+    </RadialGradientBrush>
+
+    <LinearGradientBrush x:Key="HeroScrimBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+      <GradientStop Offset="0" Color="#F0050C14" />
+      <GradientStop Offset="0.42" Color="#B3050C14" />
+      <GradientStop Offset="0.7" Color="#26050C14" />
+      <GradientStop Offset="1" Color="#00050C14" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="CoverPlaceholderBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Offset="0" Color="#CC1A3542" />
+      <GradientStop Offset="1" Color="#CC0A1820" />
+    </LinearGradientBrush>
+
+    <!-- Glass: lighter at the top edge, like light catching a pane. -->
+    <LinearGradientBrush x:Key="GlassBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#B3183340" />
+      <GradientStop Offset="0.35" Color="#A60E1E28" />
+      <GradientStop Offset="1" Color="#B3091620" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="NeonButtonBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#7DF5F1" />
+      <GradientStop Offset="1" Color="#22C4CC" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="NeonButtonHoverBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#A8FAF7" />
+      <GradientStop Offset="1" Color="#3BE3E0" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AmberButtonBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#FFC56E" />
+      <GradientStop Offset="1" Color="#F08F2E" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AmberButtonHoverBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#FFD898" />
+      <GradientStop Offset="1" Color="#F7A84A" />
+    </LinearGradientBrush>
+
+    <FontFamily x:Key="DisplayFont">avares://SeaRaider/Assets/Fonts#Orbitron</FontFamily>
+
+    <!-- Fluent controls -->
+    <Color x:Key="SystemAccentColor">#3BE3E0</Color>
+    <Color x:Key="SystemAccentColorLight1">#8AF4F1</Color>
+    <Color x:Key="SystemAccentColorLight2">#B8FAF8</Color>
+    <Color x:Key="SystemAccentColorDark1">#22C4CC</Color>
+    <SolidColorBrush x:Key="TextControlBackground" Color="#8C0C1A23" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#A6132733" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#B3132733" />
+    <SolidColorBrush x:Key="TextControlBorderBrush" Color="#4D48C9D6" />
+    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#8048C9D6" />
+    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#3BE3E0" />
+    <SolidColorBrush x:Key="ComboBoxBackground" Color="#8C0C1A23" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#A6132733" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#4D48C9D6" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#8048C9D6" />
+    <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#F20A1720" />
+    <CornerRadius x:Key="ControlCornerRadius">10</CornerRadius>
+  </Styles.Resources>
+
+  <!-- Backdrop and window ======================================================================= -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="#04090F" />
+  </Style>
+  <Style Selector="Panel.backdrop">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+  <Style Selector=":is(Control).ngen-only">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+
+  <!-- The sidebar floats on the backdrop: no panel, just a hairline edge. -->
+  <Style Selector="Border.nav-rail">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="#1A48C9D6" />
+  </Style>
+  <Style Selector="Border.status-bar">
+    <Setter Property="Background" Value="#CC060F17" />
+    <Setter Property="BorderBrush" Value="#3348C9D6" />
+  </Style>
+
+  <!-- Navigation rail: the active page glows. -->
+  <Style Selector="ListBox.rail ListBoxItem">
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Margin" Value="0,3" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#33132733" />
+    <Setter Property="BorderBrush" Value="#3348C9D6" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#3D2AB8BC" />
+    <Setter Property="BorderBrush" Value="#B33BE3E0" />
+    <Setter Property="BoxShadow" Value="0 0 18 0 #553BE3E0" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#4D2AB8BC" />
+    <Setter Property="BorderBrush" Value="#3BE3E0" />
+  </Style>
+
+  <!-- Typography ================================================================================ -->
+  <Style Selector="TextBlock.hero-legacy">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="TextBlock.hero-ngen">
+    <Setter Property="IsVisible" Value="True" />
+    <Setter Property="FontFamily" Value="{DynamicResource DisplayFont}" />
+    <Setter Property="FontSize" Value="44" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="LetterSpacing" Value="3" />
+    <Setter Property="LineHeight" Value="52" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Foreground" Value="#F2F7FA" />
+  </Style>
+  <Style Selector="TextBlock.display">
+    <Setter Property="FontFamily" Value="{DynamicResource DisplayFont}" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="LetterSpacing" Value="1.5" />
+  </Style>
+  <Style Selector="TextBlock.brand">
+    <Setter Property="FontFamily" Value="{DynamicResource DisplayFont}" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="LetterSpacing" Value="1" />
+    <Setter Property="FontSize" Value="19" />
+  </Style>
+  <Style Selector="TextBlock.h1">
+    <Setter Property="LetterSpacing" Value="0.5" />
+  </Style>
+  <Style Selector="TextBlock.section-title">
+    <Setter Property="Foreground" Value="#7FD9DD" />
+  </Style>
+
+  <!-- Buttons =================================================================================== -->
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource NeonButtonBrush}" />
+    <Setter Property="Foreground" Value="#03141A" />
+    <Setter Property="BorderBrush" Value="#B3B8FAF8" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource NeonButtonHoverBrush}" />
+    <Setter Property="Foreground" Value="#03141A" />
+    <Setter Property="BoxShadow" Value="0 0 20 2 #803BE3E0" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource NeonButtonBrush}" />
+    <Setter Property="Foreground" Value="#03141A" />
+  </Style>
+  <Style Selector="Button.primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#66132733" />
+    <Setter Property="BorderBrush" Value="#3348C9D6" />
+    <Setter Property="Foreground" Value="#9AB0BC" />
+  </Style>
+
+  <Style Selector="Button.brass">
+    <Setter Property="Background" Value="{DynamicResource AmberButtonBrush}" />
+    <Setter Property="Foreground" Value="#1C0F02" />
+    <Setter Property="BorderBrush" Value="#B3FFD898" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+  <Style Selector="Button.brass:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AmberButtonHoverBrush}" />
+    <Setter Property="Foreground" Value="#1C0F02" />
+    <Setter Property="BoxShadow" Value="0 0 20 2 #80F7A84A" />
+  </Style>
+
+  <Style Selector="Button.quiet">
+    <Setter Property="Background" Value="#59102029" />
+    <Setter Property="BorderBrush" Value="#6648C9D6" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+  <Style Selector="Button.quiet:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#80173340" />
+    <Setter Property="BorderBrush" Value="#3BE3E0" />
+    <Setter Property="BoxShadow" Value="0 0 14 0 #403BE3E0" />
+  </Style>
+
+  <Style Selector="Border.glow">
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="BoxShadow" Value="0 0 22 0 #663BE3E0" />
+  </Style>
+  <Style Selector="Border.glow:pointerover">
+    <Setter Property="BoxShadow" Value="0 0 34 4 #A63BE3E0" />
+  </Style>
+
+  <!-- Glass surfaces ============================================================================= -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource GlassBrush}" />
+    <Setter Property="BorderBrush" Value="#4048C9D6" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="BoxShadow" Value="0 12 32 0 #73000000" />
+  </Style>
+  <Style Selector="Border.card:pointerover">
+    <Setter Property="BorderBrush" Value="#D93BE3E0" />
+    <Setter Property="BoxShadow" Value="0 0 30 2 #4D3BE3E0" />
+  </Style>
+  <Style Selector="Border.card.installed">
+    <Setter Property="BorderBrush" Value="#80F7A84A" />
+  </Style>
+  <Style Selector="Border.card.installed:pointerover">
+    <Setter Property="BorderBrush" Value="#F7A84A" />
+    <Setter Property="BoxShadow" Value="0 0 30 2 #4DF7A84A" />
+  </Style>
+
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{DynamicResource GlassBrush}" />
+    <Setter Property="BorderBrush" Value="#3348C9D6" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+  </Style>
+  <Style Selector="Border.pill">
+    <Setter Property="Background" Value="{DynamicResource GlassBrush}" />
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+
+  <!-- The featured game: a framed, glowing window into the backdrop. -->
+  <Style Selector="Border.hero">
+    <Setter Property="CornerRadius" Value="18" />
+    <Setter Property="BorderBrush" Value="#993BE3E0" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BoxShadow" Value="0 0 44 0 #333BE3E0" />
+  </Style>
+
+  <Style Selector="Border.chip">
+    <Setter Property="Background" Value="#80102029" />
+    <Setter Property="BorderBrush" Value="#33E6F4F7" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="Border.chip > TextBlock">
+    <Setter Property="Foreground" Value="#C9D8DF" />
+  </Style>
+  <Style Selector="Border.chip.owned">
+    <Setter Property="Background" Value="#D93A2410" />
+    <Setter Property="BorderBrush" Value="#80F7A84A" />
+  </Style>
+  <Style Selector="Border.chip.owned > TextBlock">
+    <Setter Property="Foreground" Value="#F7A84A" />
+  </Style>
+  <Style Selector="Border.chip.accent">
+    <Setter Property="BorderBrush" Value="#993BE3E0" />
+  </Style>
+  <Style Selector="Border.chip.accent > TextBlock">
+    <Setter Property="Foreground" Value="#8AF4F1" />
+  </Style>
+
+  <Style Selector="TextBox">
+    <Setter Property="CornerRadius" Value="10" />
+  </Style>
+  <Style Selector="TextBox.search">
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BoxShadow" Value="0 0 18 0 #403BE3E0" />
+  </Style>
+
+  <Style Selector="ProgressBar">
+    <Setter Property="Background" Value="#66132733" />
+  </Style>
+
+  <Style Selector="Border.friends-overlay">
+    <Setter Property="Background" Value="#EB060E15" />
+    <Setter Property="BorderBrush" Value="#4D48C9D6" />
+  </Style>
+  <Style Selector="Border.dialog">
+    <Setter Property="Background" Value="#F00A1720" />
+    <Setter Property="BorderBrush" Value="#803BE3E0" />
+    <Setter Property="BoxShadow" Value="0 0 50 0 #403BE3E0" />
+  </Style>
+</Styles>

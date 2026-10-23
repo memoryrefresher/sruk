@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!--
+    SeaRaider.Relay: a tiny WebSocket relay for friends, presence and chat.
+    Run it on any always-on machine (PC, NAS, VPS, Docker). No database; registrations are kept in relay-users.json.
+  -->
+  <PropertyGroup>
+    <RootNamespace>SeaRaider.Relay</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+</Project>

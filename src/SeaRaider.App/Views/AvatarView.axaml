@@ -1,0 +1,97 @@
+<!--
+  A profile picture: the picture (or the name's first letter) in a circle, with its decoration around it. Drawn on a
+  100 × 100 canvas that scales to any size: the picture is the middle 76, the decoration uses the rest.
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SeaRaider.App.Views.AvatarView"
+             ClipToBounds="False">
+  <Viewbox Stretch="Uniform">
+    <Canvas Width="100" Height="100">
+      <!-- The circle: initial, or the picture -->
+      <Ellipse Canvas.Left="12" Canvas.Top="12" Width="76" Height="76" Fill="{DynamicResource DeckBrush}"
+               Stroke="{DynamicResource LineBrush}" StrokeThickness="1.5" />
+      <Grid Canvas.Left="12" Canvas.Top="12" Width="76" Height="76">
+        <TextBlock x:Name="InitialText" FontSize="34" FontWeight="Bold" Foreground="{DynamicResource FoamBrush}"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+      </Grid>
+      <Ellipse x:Name="PictureCircle" Canvas.Left="12" Canvas.Top="12" Width="76" Height="76" IsVisible="False" />
+
+      <!-- Glow ring -->
+      <Canvas x:Name="DecoRing" IsVisible="False">
+        <Ellipse Canvas.Left="5" Canvas.Top="5" Width="90" Height="90" Stroke="{DynamicResource BiolumeBrush}" StrokeThickness="7" Opacity="0.22" />
+        <Ellipse Canvas.Left="8" Canvas.Top="8" Width="84" Height="84" Stroke="{DynamicResource BiolumeBrush}" StrokeThickness="3.5" />
+      </Canvas>
+
+      <!-- Sea waves -->
+      <Canvas x:Name="DecoWaves" IsVisible="False">
+        <Ellipse Canvas.Left="8" Canvas.Top="8" Width="84" Height="84" Stroke="#FF3BE3E0" StrokeThickness="2.5" />
+        <Path Stroke="#FF3BE3E0" StrokeThickness="4.5" StrokeLineCap="Round"
+              Data="M6 84 C14 78 22 90 32 84 S50 78 58 84 S76 90 84 84 S94 80 96 82" />
+        <Path Stroke="#998AF4F1" StrokeThickness="3" StrokeLineCap="Round"
+              Data="M14 93 C22 88 30 98 40 93 S58 88 66 93 S80 97 88 92" />
+        <Path Fill="#FF3BE3E0" Data="M76 4 L76 22 L88 22 Z M74 4 L74 24" Stroke="#FF3BE3E0" StrokeThickness="1.5" />
+      </Canvas>
+
+      <!-- Neon -->
+      <Canvas x:Name="DecoNeon" IsVisible="False">
+        <Ellipse Canvas.Left="6" Canvas.Top="6" Width="88" Height="88" StrokeThickness="4.5">
+          <Ellipse.Stroke>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+              <GradientStop Offset="0" Color="#FFFF3BD5" />
+              <GradientStop Offset="0.5" Color="#FF8A5CFF" />
+              <GradientStop Offset="1" Color="#FF3BE3E0" />
+            </LinearGradientBrush>
+          </Ellipse.Stroke>
+        </Ellipse>
+        <Ellipse Canvas.Left="3" Canvas.Top="3" Width="94" Height="94" Stroke="#66FF3BD5" StrokeThickness="2" />
+        <Ellipse Canvas.Left="84" Canvas.Top="14" Width="6" Height="6" Fill="#FFFFFFFF" />
+        <Ellipse Canvas.Left="10" Canvas.Top="80" Width="5" Height="5" Fill="#FF3BE3E0" />
+      </Canvas>
+
+      <!-- Gold laurel -->
+      <Canvas x:Name="DecoGold" IsVisible="False">
+        <Ellipse Canvas.Left="8" Canvas.Top="8" Width="84" Height="84" StrokeThickness="3.5">
+          <Ellipse.Stroke>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+              <GradientStop Offset="0" Color="#FFFBE3A6" />
+              <GradientStop Offset="1" Color="#FFB8862B" />
+            </LinearGradientBrush>
+          </Ellipse.Stroke>
+        </Ellipse>
+        <!-- leaves up both sides -->
+        <Path Fill="#FFE9C46A" Stroke="#FF8C6420" StrokeThickness="0.6"
+              Data="M14 80 C8 76 6 70 9 66 C14 69 16 74 14 80 Z M8 66 C2 61 2 54 6 50 C10 54 11 60 8 66 Z M6 50 C1 44 3 37 8 34 C11 39 10 45 6 50 Z M9 34 C6 27 9 21 14 19 C16 25 14 30 9 34 Z
+                    M86 80 C92 76 94 70 91 66 C86 69 84 74 86 80 Z M92 66 C98 61 98 54 94 50 C90 54 89 60 92 66 Z M94 50 C99 44 97 37 92 34 C89 39 90 45 94 50 Z M91 34 C94 27 91 21 86 19 C84 25 86 30 91 34 Z" />
+        <Path Fill="#FFFBE3A6" Data="M50 1 L53 8 L60 8 L54.5 12.5 L56.5 19.5 L50 15.3 L43.5 19.5 L45.5 12.5 L40 8 L47 8 Z" />
+      </Canvas>
+
+      <!-- Crown -->
+      <Canvas x:Name="DecoCrown" IsVisible="False">
+        <Ellipse Canvas.Left="9" Canvas.Top="9" Width="82" Height="82" Stroke="#FFE9C46A" StrokeThickness="2.5" />
+        <Path Fill="#FFF5D586" Stroke="#FF9C7424" StrokeThickness="1" StrokeJoin="Round"
+              Data="M34 18 L36 3 L44 11 L50 1 L56 11 L64 3 L66 18 Z" />
+        <Ellipse Canvas.Left="47.5" Canvas.Top="11" Width="5" Height="5" Fill="#FFFF6B6B" />
+      </Canvas>
+
+      <!-- Hallow's Eve: orange stitched ring, a cobweb, a bat and a jack-o'-lantern -->
+      <Canvas x:Name="DecoHalloween" IsVisible="False">
+        <Ellipse Canvas.Left="7" Canvas.Top="7" Width="86" Height="86" Stroke="#55FF8A3D" StrokeThickness="7" />
+        <Ellipse Canvas.Left="8" Canvas.Top="8" Width="84" Height="84" Stroke="#FFFF8A3D" StrokeThickness="3" StrokeDashArray="3,1.6" />
+        <!-- cobweb in the top-right corner -->
+        <Path Stroke="#B3F6F1EA" StrokeThickness="0.8"
+              Data="M100 0 L72 0 M100 0 L78 14 M100 0 L88 22 M100 0 L100 28 M78 0 Q83 6 82 11 Q89 13 92 18 Q96 20 100 21 M86 0 Q88 4 88 6 Q93 9 95 11 Q98 13 100 14" />
+        <!-- a bat over the top-left -->
+        <Path Fill="#FF120C1C" Stroke="#FFFF8A3D" StrokeThickness="0.5"
+              Data="M2 16 C6 9 11 9 14 14 C15 10 17 9 19 11 C21 9 23 10 24 14 C27 9 32 9 36 16 C31 14 28 16 27 20 C24 17 22 18 19 22 C16 18 14 17 11 20 C10 16 7 14 2 16 Z" />
+        <!-- jack-o'-lantern, bottom right -->
+        <Canvas Canvas.Left="66" Canvas.Top="68">
+          <Rectangle Canvas.Left="14" Canvas.Top="-2" Width="4" Height="7" Fill="#FF5B8C3A" RadiusX="1" RadiusY="1" />
+          <Ellipse Width="32" Height="27" Canvas.Top="3" Fill="#FFFF8A3D" Stroke="#FFC55A18" StrokeThickness="1" />
+          <Path Stroke="#FFC55A18" StrokeThickness="1" Data="M10 5 Q7 16 10 29 M22 5 Q25 16 22 29 M16 4 L16 30" />
+          <Path Fill="#FF2A1406" Data="M7 12 L12 12 L9.5 8 Z M20 12 L25 12 L22.5 8 Z M7 18 L10 21 L13 18 L16 21 L19 18 L22 21 L25 18 L23 24 L9 24 Z" />
+        </Canvas>
+      </Canvas>
+    </Canvas>
+  </Viewbox>
+</UserControl>
