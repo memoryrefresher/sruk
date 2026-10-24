@@ -29,6 +29,9 @@ public sealed class DownloadFileSpec
 {
     public string Url { get; set; } = string.Empty;
 
+    /// <summary>Only this folder of the torrent (a backups torrent's one game); null = all of it.</summary>
+    public string? TorrentFolder { get; set; }
+
     public DownloadLinkKind Kind { get; set; }
 
     /// <summary>Name as published by the source (from the URL).</summary>
@@ -80,6 +83,7 @@ public sealed class DownloadFileSpec
         PartNumber = link.PartNumber,
         Host = link.Host,
         MirrorName = string.IsNullOrWhiteSpace(link.Mirror) ? null : link.Mirror,
+        TorrentFolder = link.TorrentFolder,
     };
 }
 

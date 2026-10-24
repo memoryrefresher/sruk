@@ -111,7 +111,8 @@ public sealed class GameDetailsService(
                         CancellationToken.None).ConfigureAwait(false) is { } followed)
                     notes.Add(followed);
                 if (notes.Count > 0) logger.LogInformation("Reader {Reader} on {Url}: {Notes}", reader.Name, finalUri, string.Join("; ", notes));
-                if (!reader.UseOwnPictures) await TryEnrichAsync(full).ConfigureAwait(false);
+                // Steam's details, pictures and trailer too (a reader made by the teacher reads the site; Steam fills the rest).
+                if (!reader.UseOwnPictures || repository.GetSettings().PreferSteamInfo) await TryEnrichAsync(full).ConfigureAwait(false);
             }
             else
             {
@@ -177,6 +178,9 @@ public sealed class GameDetailsService(
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            // Steam's clean details over a site's messy ones (never for console games: those come from RomInfoService).
+            if (repository.GetSettings().PreferSteamInfo && RomInfoService.SystemOf(game) is null)
+                await media.ApplyStoreInfoAsync(game, timeout.Token).ConfigureAwait(false);
             await media.EnrichAsync(game, timeout.Token).ConfigureAwait(false);
         }
         catch (Exception ex)

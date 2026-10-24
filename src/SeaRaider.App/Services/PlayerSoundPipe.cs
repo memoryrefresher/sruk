@@ -259,6 +259,18 @@ internal sealed class PcmStreamOut : IDisposable
     [DllImport("winmm.dll")] private static extern int waveOutUnprepareHeader(IntPtr handle, IntPtr header, uint size);
     [DllImport("winmm.dll")] private static extern int waveOutReset(IntPtr handle);
     [DllImport("winmm.dll")] private static extern int waveOutClose(IntPtr handle);
+    [DllImport("winmm.dll")] private static extern int waveOutSetVolume(IntPtr handle, uint volume);
+
+    /// <summary>Puts SeaRaider's own volume in Windows' volume mixer back to full (winmm sets it for the whole app).</summary>
+    public static void ResetAppVolume(int sampleRate)
+    {
+        if (Open(sampleRate) is not { } output) return;
+        waveOutSetVolume(output._handle, 0xFFFFFFFF);
+        output.Dispose();
+    }
+
+    /// <summary>Frames queued and not played yet.</summary>
+    public int QueuedFrames => _queuedFrames;
 
     private static readonly int HeaderSize = Marshal.SizeOf<WaveHeader>();
     private static readonly int FlagsOffset = (int)Marshal.OffsetOf<WaveHeader>(nameof(WaveHeader.Flags));

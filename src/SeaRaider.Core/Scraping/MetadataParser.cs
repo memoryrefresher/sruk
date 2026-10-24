@@ -136,6 +136,14 @@ public static partial class MetadataParser
         // Bracket groups are release notes ("[FitGirl Repack]", "(MULTi10)", "(+ OST)") — except a lone year.
         text = BracketGroupRegex().Replace(text, g => YearGroupRegex().IsMatch(g.Value) ? g.Value : " ");
         text = NoiseWordsRegex().Replace(text, " ");
+        // Site leftovers at the end: "… Free Download", "… Download (gg", "… - SteamGG.net", "… Torrent", "… for PC".
+        text = Regex.Replace(text, @"\s*[\[(][^\[\]()]*$", " ", RegexOptions.None, RegexTimeout); // a bracket that never closes
+        for (var i = 0; i < 4; i++)
+            text = Regex.Replace(text,
+                @"(?:\s*[-|:»]?\s*(?:[a-z0-9-]+\.(?:net|com|org|to|io|cc|me|xyz|site|info|ru|pro|games?)|free|download(?:s|able)?|torrents?|" +
+                @"gg|steamgg|steam\s*gg|igg(?:-games)?|steamrip|ovagames|crack(?:ed)?|for\s+pc|pc\s+games?|full\s+(?:game|version)|unlocked|" +
+                @"pre-?installed|direct\s+links?|latest\s+version|highly\s+compressed|nosteam|no\s+steam|google\s+drive|mega|mediafire))+\s*$",
+                string.Empty, RegexOptions.IgnoreCase, RegexTimeout);
 
         // Tidy separators left behind ("Game -  - ", "Game:", "Game ,").
         text = Collapse(text);

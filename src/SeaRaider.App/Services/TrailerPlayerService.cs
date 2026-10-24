@@ -25,6 +25,9 @@ public sealed record TrailerSession(string PlayerFolder, string PageName, string
     string? ThumbnailUrl = null, bool IsLive = false, string? EmbedReferer = null, string? PageUrl = null)
 {
     /// <summary>The host of the framed player <see cref="EmbedReferer"/> is sent to.</summary>
+    /// <summary>A game's trailer (from its store page), not a stream: no "Loading…" text over it.</summary>
+    public bool IsGameTrailer { get; init; }
+
     public string? EmbedHost => EmbedReferer is not null && Uri.TryCreate(MediaStreams.WithoutHint(Url), UriKind.Absolute, out var uri) ? uri.Host : null;
 }
 
@@ -287,6 +290,22 @@ public sealed partial class TrailerPlayerService : ObservableObject
     /// <param name="title">Game title for the overlay.</param>
     /// <param name="startSeconds">Start playing from here (a shared "watch from 1:23", a time in a comment).</param>
     /// <param name="thumbnailUrl">Its picture, for friends' "Watching" (optional).</param>
+    /// <summary>A game's trailer from its page (no stream "Loading…" text).</summary>
+    public void PlayTrailer(string url, string? storePageUrl, string title)
+    {
+        _nextIsTrailer = true;
+        try
+        {
+            Play(url, storePageUrl, title);
+        }
+        finally
+        {
+            _nextIsTrailer = false;
+        }
+    }
+
+    private bool _nextIsTrailer;
+
     public void Play(string url, string? storePageUrl, string title, int? startSeconds = null, string? thumbnailUrl = null)
     {
         // After "+ Stream": what's picked joins the grid.
@@ -349,7 +368,10 @@ public sealed partial class TrailerPlayerService : ObservableObject
             !framed.Host.Equals(foundOn.Host, StringComparison.OrdinalIgnoreCase))
             referer = foundOn.AbsoluteUri;
         var session = new TrailerSession(Path.GetDirectoryName(page)!, Path.GetFileName(page), title, url, start,
-            thumbnailUrl ?? (youTubeId is not null ? $"https://i.ytimg.com/vi/{youTubeId}/hqdefault.jpg" : null), live, referer, storePageUrl);
+            thumbnailUrl ?? (youTubeId is not null ? $"https://i.ytimg.com/vi/{youTubeId}/hqdefault.jpg" : null), live, referer, storePageUrl)
+        {
+            IsGameTrailer = _nextIsTrailer,
+        };
 
         if (alongside && Current is not null)
         {

@@ -177,6 +177,7 @@ public sealed partial class SettingsViewModel(ILibraryRepository repository, She
 
     // ---- media & verification (General tab) ------------------------------------------------------
     [ObservableProperty] private bool _useSteamMedia = true;
+    [ObservableProperty] private bool _preferSteamInfo = true;
     [ObservableProperty] private string _igdbClientId = string.Empty;
     [ObservableProperty] private string _igdbClientSecret = string.Empty;
     [ObservableProperty] private bool _autoInstallWebView2 = true;
@@ -270,12 +271,23 @@ public sealed partial class SettingsViewModel(ILibraryRepository repository, She
     /// <summary>One row per system: the emulator that plays its games.</summary>
     public System.Collections.ObjectModel.ObservableCollection<EmulatorRowViewModel> EmulatorRows { get; } = new();
 
+    /// <summary>The console whose emulator is shown (Settings › Emulators: one at a time).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelectedEmulatorRow))]
+    private EmulatorRowViewModel? _selectedEmulatorRow;
+
+    public bool HasSelectedEmulatorRow => SelectedEmulatorRow is not null;
+
+    /// <summary>Which games the store opens on: PC games unless chosen otherwise.</summary>
+    [ObservableProperty] private SystemChoice _storeStartSystem = StorefrontViewModel.SystemChoices[1];
+
     [ObservableProperty] private string? _emulatorScanText;
 
     /// <summary>RetroArch plays every system it has a core for (on by default).</summary>
     [ObservableProperty] private bool _preferRetroArch = true;
     [ObservableProperty] private bool _romInfoFromWeb = true;
     [ObservableProperty] private bool _showConsoleGames;
+    [ObservableProperty] private bool _hideNonEnglish = true;
 
     /// <summary>retroarch.exe; empty = found by itself.</summary>
     [ObservableProperty] private string _retroArchPath = string.Empty;
@@ -295,6 +307,7 @@ public sealed partial class SettingsViewModel(ILibraryRepository repository, She
             var saved = settings.Emulators.FirstOrDefault(e => string.Equals(e.SystemId, system.Id, StringComparison.OrdinalIgnoreCase));
             EmulatorRows.Add(new EmulatorRowViewModel(system, saved?.ExePath ?? string.Empty, saved?.Arguments ?? string.Empty, shell.PickEmulatorAsync));
         }
+        SelectedEmulatorRow = EmulatorRows.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.ExePath)) ?? EmulatorRows.FirstOrDefault();
     }
 
     /// <summary>Looks for emulators installed on this PC and fills in the systems that have none yet (nothing is saved until Save).</summary>
@@ -428,6 +441,7 @@ public sealed partial class SettingsViewModel(ILibraryRepository repository, She
         FriendsEnabled = s.FriendsEnabled;
         RelayUrl = s.RelayUrl ?? string.Empty;
         UseSteamMedia = s.UseSteamMedia;
+        PreferSteamInfo = s.PreferSteamInfo;
         IgdbClientId = s.IgdbClientId ?? string.Empty;
         IgdbClientSecret = s.IgdbClientSecret ?? string.Empty;
         AutoInstallWebView2 = s.AutoInstallWebView2;
@@ -436,6 +450,8 @@ public sealed partial class SettingsViewModel(ILibraryRepository repository, She
         PreferRetroArch = s.PreferRetroArch;
         RomInfoFromWeb = s.RomInfoFromWeb;
         ShowConsoleGames = s.ShowConsoleGames;
+        StoreStartSystem = StorefrontViewModel.SystemChoices.FirstOrDefault(c => c.Id == s.StoreStartSystem) ?? StorefrontViewModel.SystemChoices[1];
+        HideNonEnglish = s.HideNonEnglish;
         RetroArchPath = s.RetroArchPath ?? string.Empty;
         MediaPreferredPlayers = string.Join(", ", s.MediaPreferredPlayers);
         MediaStreamNumber = s.MediaStreamNumber;
@@ -505,6 +521,7 @@ public sealed partial class SettingsViewModel(ILibraryRepository repository, She
         s.RelayUrl = string.IsNullOrWhiteSpace(RelayUrl) ? null : RelayUrl.Trim();
         s.FriendsEnabled = FriendsEnabled;
         s.UseSteamMedia = UseSteamMedia;
+        s.PreferSteamInfo = PreferSteamInfo;
         s.IgdbClientId = string.IsNullOrWhiteSpace(IgdbClientId) ? null : IgdbClientId.Trim();
         s.IgdbClientSecret = string.IsNullOrWhiteSpace(IgdbClientSecret) ? null : IgdbClientSecret.Trim();
         s.AutoInstallWebView2 = AutoInstallWebView2;
@@ -516,6 +533,8 @@ public sealed partial class SettingsViewModel(ILibraryRepository repository, She
         s.PreferRetroArch = PreferRetroArch;
         s.RomInfoFromWeb = RomInfoFromWeb;
         s.ShowConsoleGames = ShowConsoleGames;
+        s.StoreStartSystem = StoreStartSystem?.Id;
+        s.HideNonEnglish = HideNonEnglish;
         var retroArchPath = RetroArchPath.Trim().Trim('"');
         if (retroArchPath.Length > 0 && !File.Exists(retroArchPath))
             throw new ArgumentException("RetroArch wasn't found at that path. Point it at retroarch.exe, or leave it empty to have it found.");

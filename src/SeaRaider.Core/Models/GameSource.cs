@@ -56,6 +56,21 @@ public sealed class GameSource
     /// </summary>
     public bool IsWebGame { get; set; }
 
+    /// <summary>
+    /// A torrent of backups as a source (Sources › Add: a .torrent file, its address, or a magnet): each game folder in it is a
+    /// store entry that downloads only that folder. Where it was added from.
+    /// </summary>
+    public string? TorrentOrigin { get; set; }
+
+    /// <summary>SeaRaider's own copy of that torrent file (so the source works without the original).</summary>
+    public string? TorrentFile { get; set; }
+
+    [BsonIgnore]
+    public bool IsTorrent => !string.IsNullOrEmpty(TorrentFile);
+
+    /// <summary>The console a backups torrent's games are for, when chosen in Sources (else worked out from its names).</summary>
+    public string? TorrentSystemId { get; set; }
+
     public CrawlMode Mode { get; set; } = CrawlMode.Auto;
 
     /// <summary>Safety cap on listing pages walked by the pagination crawler.</summary>

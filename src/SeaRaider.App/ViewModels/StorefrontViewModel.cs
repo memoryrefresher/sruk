@@ -35,6 +35,12 @@ public sealed partial class SystemChipViewModel(StorefrontViewModel owner, Syste
 
     [RelayCommand]
     private void Choose() => owner.SelectedSystem = Choice;
+
+    /// <summary>"All" can't be hidden.</summary>
+    public bool CanHide => Choice.Id is not null;
+
+    [RelayCommand]
+    private void Hide() => owner.HideChip(Choice);
 }
 
 /// <summary>
@@ -131,6 +137,9 @@ public sealed partial class StorefrontViewModel : PageViewModel
         };
 
         // Coalesce bursts of catalog changes (live results, background crawls) into one re-sort.
+        // The store opens on PC games unless Settings › Store says otherwise.
+        var startOn = repository.GetSettings().StoreStartSystem;
+        _selectedSystem = SystemChoices.FirstOrDefault(c => c.Id == startOn) ?? SystemChoices[0];
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
         _refreshTimer.Tick += (_, _) =>
         {
@@ -390,14 +399,43 @@ public sealed partial class StorefrontViewModel : PageViewModel
 
     private static string? SystemOf(GameGroup group) => group.Variants.Select(v => v.SystemId).FirstOrDefault(id => id is not null);
 
+    /// <summary>Console buttons hidden from the row above the store ("Hidden" brings them back).</summary>
+    public ObservableCollection<SystemChoice> HiddenChips { get; } = [];
+
+    public bool HasHiddenChips => HiddenChips.Count > 0;
+    public string HiddenChipsText => $"Hidden ({HiddenChips.Count})";
+
+    internal void HideChip(SystemChoice choice)
+    {
+        if (choice.Id is null) return;
+        var settings = _repository.GetSettings();
+        if (!settings.HiddenSystemChips.Contains(choice.Id, StringComparer.OrdinalIgnoreCase)) settings.HiddenSystemChips.Add(choice.Id);
+        if (string.Equals(SelectedSystem?.Id, choice.Id, StringComparison.OrdinalIgnoreCase)) SelectedSystem = SystemChoices[1];
+        _repository.SaveSettings(settings); // the store rebuilds (its settings changed)
+    }
+
+    [RelayCommand]
+    private void ShowChip(SystemChoice? choice)
+    {
+        if (choice?.Id is null) return;
+        var settings = _repository.GetSettings();
+        settings.HiddenSystemChips.RemoveAll(id => id.Equals(choice.Id, StringComparison.OrdinalIgnoreCase));
+        _repository.SaveSettings(settings);
+    }
+
     private void UpdateSystemChips(IReadOnlyCollection<GameGroup> groups)
     {
         var counts = groups.GroupBy(g => SystemOf(g) ?? PcGamesId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+        var hiddenIds = _repository.GetSettings().HiddenSystemChips.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        HiddenChips.Clear();
+        foreach (var choice in SystemChoices.Where(c => c.Id is not null && hiddenIds.Contains(c.Id))) HiddenChips.Add(choice);
+        OnPropertyChanged(nameof(HasHiddenChips));
+        OnPropertyChanged(nameof(HiddenChipsText));
         SystemChips.Clear();
-        if (counts.Keys.Any(k => k != PcGamesId))
+        if (counts.Keys.Any(k => k != PcGamesId) || HiddenChips.Count > 0)
         {
-            foreach (var choice in SystemChoices)
+            foreach (var choice in SystemChoices.Where(c => c.Id is null || !hiddenIds.Contains(c.Id)))
             {
                 var count = choice.Id is null ? groups.Count : counts.GetValueOrDefault(choice.Id);
                 if (count == 0 && !string.Equals(choice.Id, SelectedSystem?.Id, StringComparison.OrdinalIgnoreCase)) continue;
@@ -437,9 +475,11 @@ public sealed partial class StorefrontViewModel : PageViewModel
     private bool IsMultiplayer(GameGroup group) => group.Variants.Any(v => MultiplayerGames.IsMultiplayer(v, _multiplayerExceptions));
 
     /// <summary>The "System" dropdown: a card is shown when any of its sites' entries is for the chosen console (or none, for PC games).</summary>
-    private bool MatchesSystem(GameGroup group)
+    private bool MatchesSystem(GameGroup group) => MatchesSystem(group, SelectedSystem);
+
+    private static bool MatchesSystem(GameGroup group, SystemChoice? choice)
     {
-        var wanted = SelectedSystem?.Id;
+        var wanted = choice?.Id;
         if (wanted is null) return true;
         var system = group.Variants.Select(v => v.SystemId).FirstOrDefault(id => id is not null);
         return wanted == PcGamesId ? system is null : string.Equals(system, wanted, StringComparison.OrdinalIgnoreCase);
@@ -563,25 +603,84 @@ public sealed partial class StorefrontViewModel : PageViewModel
     }
 
     /// <summary>Recomputes the ordered result list from the cache + live results, keeping the page count.</summary>
+    // The store's list is worked out away from the window (30 000 games sorted, grouped and filtered took the window with it,
+    // and every new game, search letter or refresh asked for it again): asks made while one runs are folded into one more run.
+    private int _rebuildGeneration;
+    private bool _rebuildRunning, _rebuildAgain, _rebuildReset;
+
     private void Rebuild(bool resetPaging)
     {
-        _sourceNames = _repository.GetSources().ToDictionary(s => s.Id, SiteProfiles.NameFor);
-        var bestMatch = SelectedSort.Sort is null;
-        var sort = SelectedSort.Sort ?? (_query.Length > 0 ? CatalogSort.Relevance : CatalogSort.UploadNewest);
-        var active = _activeSources;
-        var local = _index.Query(new CatalogQuery(_query, sort, SourceIds: active));
+        _rebuildReset |= resetPaging;
+        if (_rebuildRunning)
+        {
+            _rebuildAgain = true;
+            return;
+        }
+        _ = RebuildAsync();
+    }
 
+    private sealed record RebuildResult(List<GameGroup> Shown, List<GameGroup> InSystem, List<GameGroup> Multiplayer, GameGroup? Featured,
+        AppSettings Settings);
+
+    private async Task RebuildAsync()
+    {
+        _rebuildRunning = true;
+        try
+        {
+            do
+            {
+                _rebuildAgain = false;
+                var resetPaging = _rebuildReset;
+                _rebuildReset = false;
+                var generation = ++_rebuildGeneration;
+
+                // What the list depends on, read here (the window's state), then worked out in the background.
+                _sourceNames = _repository.GetSources().ToDictionary(s => s.Id, SiteProfiles.NameFor);
+                var query = _query;
+                var bestMatch = SelectedSort.Sort is null;
+                var sort = SelectedSort.Sort ?? (query.Length > 0 ? CatalogSort.Relevance : CatalogSort.UploadNewest);
+                var active = _activeSources;
+                var liveOrder = _liveOrder.ToList();
+                var system = SelectedSystem;
+                var settings = _repository.GetSettings();
+                _multiplayerExceptions = MultiplayerGames.ParseExceptions(settings.MultiplayerExceptions);
+                if (!settings.ShowConsoleGames && system?.Id is { } chosenSystem && chosenSystem != PcGamesId)
+                {
+                    system = SystemChoices[1]; // PC games
+                    SelectedSystem = system; // asks again; folded into the next run
+                }
+
+                var result = await Task.Run(() => Compute(query, bestMatch, sort, active, liveOrder, system, settings));
+                if (generation != _rebuildGeneration) continue;
+                Apply(result, resetPaging, query);
+            }
+            while (_rebuildAgain);
+        }
+        catch (Exception ex)
+        {
+            SeaRaider.Core.ErrorLog.Write(ex, "store list");
+        }
+        finally
+        {
+            _rebuildRunning = false;
+        }
+    }
+
+    private RebuildResult Compute(string query, bool bestMatch, CatalogSort sort, HashSet<Guid> active, List<string> liveOrder,
+        SystemChoice? system, AppSettings settings)
+    {
+        var local = _index.Query(new CatalogQuery(query, sort, SourceIds: active));
         var union = new Dictionary<string, CatalogEntry>(StringComparer.Ordinal);
         foreach (var e in local) union[e.Id] = e;
-        foreach (var e in _liveOrder.Select(_index.Get).OfType<CatalogEntry>().Where(e => active.Contains(e.SourceId)))
+        foreach (var e in liveOrder.Select(_index.Get).OfType<CatalogEntry>().Where(e => active.Contains(e.SourceId)))
             union[e.Id] = e; // already relevance-filtered
 
         List<CatalogEntry> ordered;
-        if (_query.Length > 0 && bestMatch)
+        if (query.Length > 0 && bestMatch)
         {
             // Best match: relevance first (exact titles on top); the sites' own order breaks ties.
-            var search = SearchQuery.Parse(_query);
-            var liveRank = _liveOrder.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i, StringComparer.Ordinal);
+            var search = SearchQuery.Parse(query);
+            var liveRank = liveOrder.Select((id, i) => (id, i)).GroupBy(x => x.id).ToDictionary(g => g.Key, g => g.First().i, StringComparer.Ordinal);
             ordered = union.Values
                 .OrderByDescending(e => Math.Round(_index.Score(search, e), 3))
                 .ThenBy(e => liveRank.TryGetValue(e.Id, out var r) ? r : int.MaxValue)
@@ -594,37 +693,62 @@ public sealed partial class StorefrontViewModel : PageViewModel
         }
 
         // One card per game, however many sites have it; minus what's hidden (× on a card) and site posts that aren't games.
-        var settings = _repository.GetSettings();
         var hidden = settings.HiddenStoreItems.Select(h => h.Key).ToHashSet(StringComparer.Ordinal);
-        var shownGroups = GameDeduplicator.Group(ordered).Where(g => IsShown(g.Key, g.Primary, hidden, settings.HideNonGames) &&
-                                                                   !(settings.HideAdultGames && g.Variants.Any(v => AdultContentFilter.IsAdult(v))) &&
-                                                                   (settings.ShowConsoleGames || SystemOf(g) is null))
+        var hiddenChips = settings.HiddenSystemChips.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var shown = GameDeduplicator.Group(ordered).Where(g => (settings.ShowConsoleGames || SystemOf(g) is null) &&
+                                                               !(settings.HideNonEnglish && g.Variants.All(v => v.IsNonEnglish)) &&
+                                                               // a hidden console button: its games aren't in "All" either
+                                                               !(system?.Id is null && hiddenChips.Contains(SystemOf(g) ?? PcGamesId)) &&
+                                                               IsShown(g.Key, g.Primary, hidden, settings.HideNonGames) &&
+                                                               !(settings.HideAdultGames && g.Variants.Any(IsAdultCached)))
             .ToList();
-        ShowConsoles = settings.ShowConsoleGames;
-        if (!ShowConsoles && SelectedSystem?.Id is { } chosen && chosen != PcGamesId) SelectedSystem = SystemChoices[0];
-        UpdateSystemChips(shownGroups); // each console's area, counted before one is chosen
-        _multiplayerExceptions = MultiplayerGames.ParseExceptions(settings.MultiplayerExceptions);
-        var inSystem = shownGroups.Where(MatchesSystem).ToList();
+        var inSystem = shown.Where(g => MatchesSystem(g, system)).ToList();
         var multiplayer = inSystem.Where(IsMultiplayer).ToList();
-        MultiplayerCount = multiplayer.Count;
-        _ordered = MultiplayerOnly ? multiplayer : inSystem;
+
+        GameGroup? featured = null;
+        if (query.Length == 0 && system?.Id is null && !MultiplayerOnly)
+        {
+            // The banner is the newest game overall (the list above is already newest first when sorted that way).
+            var newest = sort == CatalogSort.UploadNewest ? ordered : _index.Query(new CatalogQuery(null, CatalogSort.UploadNewest, SourceIds: active));
+            var entry = newest.FirstOrDefault(e => e.CoverImageUrl is not null && (settings.ShowConsoleGames || e.SystemId is null) &&
+                                                   IsShown(_index.KeyOf(e), e, hidden, settings.HideNonGames) &&
+                                                   !(settings.HideAdultGames && IsAdultCached(e)));
+            if (entry is not null) featured = GameDeduplicator.Build(_index.KeyOf(entry), _index.GetVariants(entry.Id));
+        }
+        return new RebuildResult(shown, inSystem, multiplayer, featured, settings);
+    }
+
+    private void Apply(RebuildResult result, bool resetPaging, string query)
+    {
+        ShowConsoles = result.Settings.ShowConsoleGames;
+        UpdateSystemChips(result.Shown); // each console's area, counted before one is chosen
+        MultiplayerCount = result.Multiplayer.Count;
+        _ordered = MultiplayerOnly ? result.Multiplayer : result.InSystem;
         _cardByGameId.Clear();
         if (resetPaging || _shown == 0) _shown = PageSize;
         Games.ResetWith(_ordered.Take(_shown).Select(CardFor));
         ResultCount = _ordered.Count;
 
-        if (_query.Length == 0)
+        if (query.Length == 0)
         {
-            // The banner is the newest game overall; with a system chosen it would be a game from another one.
-            var featured = SelectedSystem.Id is not null || MultiplayerOnly ? null : _index.Query(new CatalogQuery(null, CatalogSort.UploadNewest, SourceIds: active))
-                .FirstOrDefault(e => e.CoverImageUrl is not null && (settings.ShowConsoleGames || e.SystemId is null) && IsShown(_index.KeyOf(e), e, hidden, settings.HideNonGames) &&
-                                     !(settings.HideAdultGames && AdultContentFilter.IsAdult(e)));
-            Featured = featured is null ? null : CardFor(GameDeduplicator.Build(_index.KeyOf(featured), _index.GetVariants(featured.Id)));
+            Featured = result.Featured is null ? null : CardFor(result.Featured);
             Featured?.LoadHero(); // full-width banner: high-resolution art instead of the small cover
         }
         OnPropertyChanged(nameof(HasFeatured));
         UpdatePagingState();
     }
+
+    /// <summary>The adult-content check, once per entry (it reads the title and genres with patterns: costly 30 000 times over).</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<CatalogEntry, object> AdultCache = new();
+    private static readonly object Yes = new(), No = new();
+
+    private static bool IsAdultCached(CatalogEntry entry) =>
+        ReferenceEquals(AdultCache.GetValue(entry, e => AdultContentFilter.IsAdult(e) ? Yes : No), Yes);
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<CatalogEntry, object> NotGameCache = new();
+
+    private static bool IsNotAGameCached(CatalogEntry entry) =>
+        ReferenceEquals(NotGameCache.GetValue(entry, e => NonGameFilter.IsNotAGame(e) ? Yes : No), Yes);
 
     private void UpdatePagingState()
     {
@@ -665,10 +789,14 @@ public sealed partial class StorefrontViewModel : PageViewModel
     }
 
     private static bool IsShown(string key, CatalogEntry entry, HashSet<string> hidden, bool hideNonGames) =>
-        !hidden.Contains(key) && !(hideNonGames && NonGameFilter.IsNotAGame(entry));
+        !hidden.Contains(key) && !(hideNonGames && !IsFileListed(entry) && IsNotAGameCached(entry));
+
+    /// <summary>A ROM, or a game from a backups torrent: its name is a file's, never a site's post (the "not a game" check doesn't apply).</summary>
+    private static bool IsFileListed(CatalogEntry entry) =>
+        entry.SystemId is not null || entry.PageUrl.StartsWith("https://torrent.local/", StringComparison.OrdinalIgnoreCase);
 
     private static string HiddenSignature(AppSettings settings) =>
-        $"{settings.HideNonGames}|{settings.HideAdultGames}|{settings.ShowConsoleGames}|{settings.MultiplayerExceptions}|{string.Join(",", settings.HiddenStoreItems.Select(h => h.Key))}";
+        $"{settings.HideNonGames}|{settings.HideAdultGames}|{settings.ShowConsoleGames}|{settings.HideNonEnglish}|{string.Join(",", settings.HiddenSystemChips)}|{settings.MultiplayerExceptions}|{string.Join(",", settings.HiddenStoreItems.Select(h => h.Key))}";
 
     /// <summary>The card's ×: hidden from the store until restored (Undo, or Settings → General → Store).</summary>
     private void HideCard(GameCardViewModel card)

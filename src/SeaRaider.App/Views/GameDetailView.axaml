@@ -12,9 +12,12 @@
     <DataTemplate x:Key="MirrorRow" x:DataType="vm:MirrorOptionViewModel">
       <Button Classes="mirror-option" Classes.selected="{Binding IsSelected}" Command="{Binding SelectCommand}" Margin="0,0,0,4">
         <StackPanel Spacing="3">
-          <Grid ColumnDefinitions="*,Auto">
+          <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBlock FontWeight="SemiBold" FontSize="13" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
             <TextBlock Grid.Column="1" Classes="muted small" Margin="8,0,0,0" Text="{Binding SizeText}" IsVisible="{Binding HasSize}" />
+            <Button Grid.Column="2" Classes="link" FontSize="11" Padding="6,0" Margin="6,0,0,0" Content="Hide"
+                    IsVisible="{Binding CanHide}" Command="{Binding HideCommand}"
+                    ToolTip.Tip="This one doesn't work: hide it (SeaRaider won't use it, not even on Automatic)" />
           </Grid>
           <Border Classes="tag" HorizontalAlignment="Left">
             <TextBlock Text="{Binding Tag}" />
@@ -236,6 +239,9 @@
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    <Button Classes="link" FontSize="12" HorizontalAlignment="Left" Margin="0,4,0,0"
+                            Content="{Binding HiddenOptionsText}" IsVisible="{Binding HasHiddenOptions}"
+                            Command="{Binding ShowHiddenOptionsCommand}" />
                   </StackPanel>
                 </StackPanel>
                 </Border>

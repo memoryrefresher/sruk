@@ -135,15 +135,38 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:SystemChipViewModel">
-              <Button Classes="source-tab" Classes.selected="{Binding IsSelected}" Margin="0,0,8,8" Command="{Binding ChooseCommand}">
+              <Button Classes="source-tab" Classes.selected="{Binding IsSelected}" Margin="0,0,8,8" Command="{Binding ChooseCommand}"
+                      ToolTip.Tip="Right-click to hide this button">
+                <Button.ContextMenu>
+                  <ContextMenu IsVisible="{Binding CanHide}">
+                    <MenuItem Header="Hide" Command="{Binding HideCommand}" />
+                  </ContextMenu>
+                </Button.ContextMenu>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <TextBlock Classes="source-name" Text="{Binding Label}" VerticalAlignment="Center" />
                   <TextBlock Classes="muted small" Text="{Binding CountText}" VerticalAlignment="Center" />
+                  <Button Classes="link" Padding="2,0" FontSize="11" VerticalAlignment="Center" Content="✕" IsVisible="{Binding CanHide}"
+                          Command="{Binding HideCommand}" ToolTip.Tip="Hide this tag (bring it back from Hidden below)" />
                 </StackPanel>
               </Button>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+        <Button Classes="link" FontSize="12" HorizontalAlignment="Left" Margin="0,-2,0,6" IsVisible="{Binding HasHiddenChips}"
+                Content="{Binding HiddenChipsText}" ToolTip.Tip="Show a hidden console button again">
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <ItemsControl ItemsSource="{Binding HiddenChips}" x:Name="HiddenChipList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SystemChoice">
+                    <Button Classes="link" HorizontalAlignment="Left" Padding="6,4" Content="{Binding Label, StringFormat='Show {0}'}"
+                            Command="{Binding #HiddenChipList.((vm:StorefrontViewModel)DataContext).ShowChipCommand}" CommandParameter="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
 
         <StackPanel Orientation="Horizontal" Spacing="14">
           <TextBlock Classes="muted small" VerticalAlignment="Center" Text="{Binding ResultsText}" />

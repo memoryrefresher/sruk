@@ -101,8 +101,9 @@ public class EmulationTests
 
         Assert.Equal("-batch -fullscreen -- \"C:\\Roms\\Game.iso\"", EmulatorCommand.Build(@"C:\Emu\pcsx2-qt.exe", null, ps2, @"C:\Roms\Game.iso").Arguments);
         Assert.Equal("\"C:\\Roms\\Game.sfc\"", EmulatorCommand.Build(@"C:\Emu\snes9x-x64.exe", null, snes, @"C:\Roms\Game.sfc").Arguments);
-        Assert.Equal("-f -L \"C:\\RA\\cores\\snes9x_libretro.dll\" \"C:\\Roms\\Game.sfc\"",
-            EmulatorCommand.Build(@"C:\RA\retroarch.exe", null, snes, @"C:\Roms\Game.sfc").Arguments);
+        var retroArch = EmulatorCommand.Build(@"C:\RA\retroarch.exe", null, snes, @"C:\Roms\Game.sfc").Arguments;
+        Assert.StartsWith("--appendconfig ", retroArch); // sound on (SeaRaider's RetroArch settings)
+        Assert.EndsWith("-f -L \"C:\\RA\\cores\\snes9x_libretro.dll\" \"C:\\Roms\\Game.sfc\"", retroArch);
     }
 
     [Fact]

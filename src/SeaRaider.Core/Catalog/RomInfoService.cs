@@ -23,10 +23,10 @@ namespace SeaRaider.Core.Catalog;
 /// Only what the ROM site left empty is filled; its own description stays when it's a real one.
 /// </summary>
 public sealed partial class RomInfoService(IHttpClientFactory httpClientFactory, ILibraryRepository repository, YouTubeSearch youTube,
-    ILogger<RomInfoService> logger)
+    IEnumerable<IGameMediaProvider> mediaProviders, ILogger<RomInfoService> logger)
 {
     /// <summary>Bump to look at every ROM again with new rules.</summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2; // 2: IGDB first
 
     private readonly ConcurrentDictionary<string, Task<IReadOnlyList<string>>> _thumbnailIndex = new(StringComparer.Ordinal);
 
@@ -69,6 +69,33 @@ public sealed partial class RomInfoService(IHttpClientFactory httpClientFactory,
         var title = CleanTitle(game.Title, system);
         if (title.Length < 2) return notes;
         notes.Add($"ROM for {system.Name}: looking up \"{title}\"");
+
+        string? sharpCover = null;
+        // IGDB first when its keys are set (Settings › Screenshots and trailers): the sharpest covers and screenshots, and trailers.
+        if (mediaProviders.OfType<IgdbMediaProvider>().FirstOrDefault(p => p.IsAvailable) is { } igdb &&
+            await Safe(() => igdb.FindRomAsync(title, system, ct), "IGDB", title).ConfigureAwait(false) is { } best)
+        {
+            notes.Add($"IGDB: {best.Name}");
+            game.Title = best.Name;
+            FillText(game, best.Summary);
+            game.Developer ??= best.Developer;
+            game.Publisher ??= best.Publisher;
+            if (game.Genres.Count <= 1 && best.Genres.Count > 0) game.Genres = [.. game.Genres, .. best.Genres.Take(3)];
+            if (string.IsNullOrWhiteSpace(game.ReleaseDate) && best.Released is { } released)
+            {
+                game.ReleaseDateUtc = released;
+                game.ReleaseDate = released.ToString("MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (best.Cover is { } igdbCover) game.CoverImageUrl = sharpCover = igdbCover;
+            if (best.Screenshots.Count > 0)
+                game.ScreenshotUrls = best.Screenshots.Concat(game.ScreenshotUrls).Distinct(StringComparer.OrdinalIgnoreCase).Take(12).ToList();
+            if (game.TrailerUrls.Count == 0 && best.Videos.Count > 0)
+            {
+                game.TrailerUrls = best.Videos.ToList();
+                game.TrailerThumbnailUrls = best.Videos.Select(v => (string?)$"https://i.ytimg.com/vi/{v[(v.IndexOf("v=", StringComparison.Ordinal) + 2)..]}/maxresdefault.jpg").ToList();
+            }
+            game.StorePageUrl ??= best.Url;
+        }
 
         var wiki = await Safe(() => FromWikipediaAsync(title, system, ct), "Wikipedia", title).ConfigureAwait(false);
         var itch = wiki is null ? await Safe(() => FromItchAsync(title, ct), "itch.io", title).ConfigureAwait(false) : null;
@@ -125,6 +152,7 @@ public sealed partial class RomInfoService(IHttpClientFactory httpClientFactory,
             }
         }
 
+        if (sharpCover is not null) game.CoverImageUrl = sharpCover; // IGDB's cover is the sharpest
         game.RomInfoVersion = CurrentVersion;
         game.MediaChecked = true;
         game.MediaVersion = GameMetadata.CurrentMediaVersion;
@@ -323,6 +351,7 @@ public sealed partial class RomInfoService(IHttpClientFactory httpClientFactory,
         ["gb"] = "Nintendo - Game Boy",
         ["3ds"] = "Nintendo - Nintendo 3DS",
         ["nds"] = "Nintendo - Nintendo DS",
+        ["dsi"] = "Nintendo - Nintendo DSi",
         ["wii"] = "Nintendo - Wii",
         ["gc"] = "Nintendo - GameCube",
         ["vb"] = "Nintendo - Virtual Boy",
@@ -352,6 +381,17 @@ public sealed partial class RomInfoService(IHttpClientFactory httpClientFactory,
     };
 
     private const string ThumbnailHost = "https://thumbnails.libretro.com/";
+
+    /// <summary>
+    /// libretro's box art for a ROM named like the No-Intro / Redump sets ("Super Mario Bros. (World)"), or null for consoles it
+    /// doesn't cover. (Its file names have &amp;*/:`&lt;&gt;?\| as _.)
+    /// </summary>
+    public static string? BoxArtFor(GameSystem system, string romName)
+    {
+        if (!ThumbnailFolders.TryGetValue(system.Id, out var folder)) return null;
+        var name = Regex.Replace(romName, @"[&*/:`<>?\\|]", "_");
+        return ThumbnailHost + Uri.EscapeDataString(folder) + "/Named_Boxarts/" + Uri.EscapeDataString(name) + ".png";
+    }
 
     [GeneratedRegex(@"href=""(?<f>[^""]+\.png)""", RegexOptions.IgnoreCase)]
     private static partial Regex PngLinkRegex();

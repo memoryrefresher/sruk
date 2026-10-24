@@ -92,6 +92,17 @@ public sealed class GameActionService(
             return;
         }
 
+        // Download options hidden on the game's page (they didn't work) are never used, not even by Automatic.
+        var hiddenLinks = repository.GetSettings().HiddenDownloadLinks;
+        if (hiddenLinks.Count > 0)
+        {
+            var hiddenSet = hiddenLinks.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var kept = game.DownloadLinks.Where(l => !hiddenSet.Contains(l.Url)).ToList();
+            if (kept.Count == 0 && game.DownloadLinks.Count > 0)
+                throw new InvalidOperationException("Every download option for this game is hidden. Show them again from its page (Hidden options).");
+            game.DownloadLinks = kept;
+        }
+
         if (game.DownloadLinks.Count == 0)
             throw new InvalidOperationException("No download links were found on this game's page. Open the source page to check.");
 

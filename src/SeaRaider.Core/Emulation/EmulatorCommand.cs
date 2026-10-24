@@ -15,12 +15,42 @@ public static class EmulatorCommand
     {
         var emulatorFolder = Path.GetDirectoryName(Path.GetFullPath(emulatorPath)) ?? string.Empty;
         var template = string.IsNullOrWhiteSpace(argumentsTemplate) ? DefaultArguments(emulatorPath, system) : argumentsTemplate.Trim();
+        if (Path.GetFileNameWithoutExtension(emulatorPath).Contains("retroarch", StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(argumentsTemplate))
+            template = $"--appendconfig \"{WriteRetroArchAudioConfig()}\" " + template;
         var arguments = template
             .Replace("{rom}", romPath, StringComparison.OrdinalIgnoreCase)
             .Replace("{romdir}", Path.GetDirectoryName(romPath) ?? string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace("{emu}", emulatorFolder, StringComparison.OrdinalIgnoreCase)
             .Replace("{core}", system.RetroArchCore ?? string.Empty, StringComparison.OrdinalIgnoreCase);
         return new EmulatorLaunch(emulatorPath, arguments, emulatorFolder);
+    }
+
+    /// <summary>
+    /// Settings laid over RetroArch's own for every game SeaRaider starts: sound on, not muted, at full volume, on Windows'
+    /// standard sound output (a fresh or changed RetroArch could start a game silent). Your other RetroArch settings stay.
+    /// </summary>
+    private static string WriteRetroArchAudioConfig()
+    {
+        var path = Path.Combine(AppPaths.DataDirectory, "retroarch-searaider.cfg");
+        try
+        {
+            Directory.CreateDirectory(AppPaths.DataDirectory);
+            File.WriteAllText(path,
+                "# Written by SeaRaider for the games it starts (sound on). Delete this file to stop it.\n" +
+                "audio_enable = \"true\"\n" +
+                "audio_mute_enable = \"false\"\n" +
+                "audio_mixer_mute_enable = \"false\"\n" +
+                "audio_volume = \"0.000000\"\n" +
+                "audio_driver = \"wasapi\"\n" +
+                "audio_device = \"\"\n" +
+                "audio_wasapi_exclusive_mode = \"false\"\n");
+        }
+        catch (IOException)
+        {
+            // in use: the one from last time is the same
+        }
+        return path;
     }
 
     /// <summary>The arguments that open a game full screen in a well-known emulator, picked by the program's file name.</summary>

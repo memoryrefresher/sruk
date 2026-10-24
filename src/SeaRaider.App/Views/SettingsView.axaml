@@ -104,6 +104,18 @@
                           Content="Hide site posts that aren't games (update digests, upcoming repacks, donation calls, announcements)" />
                 <CheckBox IsChecked="{Binding HideAdultGames}"
                           Content="Hide adult games (nudity, sexual content)" />
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Classes="small" VerticalAlignment="Center" Text="The store opens on" />
+                  <ComboBox MinWidth="220" ItemsSource="{x:Static vm:StorefrontViewModel.SystemChoices}" SelectedItem="{Binding StoreStartSystem}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:SystemChoice">
+                        <TextBlock Text="{Binding Label}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <CheckBox IsChecked="{Binding HideNonEnglish}"
+                          Content="Hide games that aren't in English (console games only released in Japan, Europe's other languages…; titles in another script)" />
                 <StackPanel Spacing="4" IsVisible="False">
                   <TextBlock Classes="small" TextWrapping="Wrap"
                              Text="Multiplayer: every game with &quot;Online&quot; in its title, except these titles or phrases (comma separated), for games that have online in the name but aren't online games" />
@@ -162,17 +174,23 @@
                   <TextBlock Classes="small" VerticalAlignment="Center" TextWrapping="Wrap" Text="{Binding EmulatorScanText}"
                              IsVisible="{Binding EmulatorScanText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                 </StackPanel>
-                <ItemsControl ItemsSource="{Binding EmulatorRows}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:EmulatorRowViewModel">
-                      <Grid ColumnDefinitions="190,*,Auto" Margin="0,3">
-                        <TextBlock Classes="small" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding SystemName}" />
-                        <TextBox Grid.Column="1" Text="{Binding ExePath}" Watermark="No emulator chosen" />
-                        <Button Grid.Column="2" Classes="quiet" Margin="10,0,0,0" Content="Browse" Command="{Binding BrowseCommand}" />
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <!-- One console at a time: pick it, then its emulator -->
+                <Grid ColumnDefinitions="190,*" Margin="0,3">
+                  <TextBlock Classes="small" VerticalAlignment="Center" Text="Console" />
+                  <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding EmulatorRows}" SelectedItem="{Binding SelectedEmulatorRow}">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:EmulatorRowViewModel">
+                        <TextBlock Text="{Binding SystemName}" />
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </Grid>
+                <Grid ColumnDefinitions="190,*,Auto" Margin="0,3" DataContext="{Binding SelectedEmulatorRow}" x:DataType="vm:EmulatorRowViewModel"
+                      IsVisible="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).HasSelectedEmulatorRow}">
+                  <TextBlock Classes="small" VerticalAlignment="Center" Text="Emulator" />
+                  <TextBox Grid.Column="1" Text="{Binding ExePath}" Watermark="No emulator chosen" />
+                  <Button Grid.Column="2" Classes="quiet" Margin="10,0,0,0" Content="Browse" Command="{Binding BrowseCommand}" />
+                </Grid>
                 <TextBlock Classes="muted small" TextWrapping="Wrap"
                            Text="Known emulators are started full screen straight into the game. Press Save to keep your choices." />
                   </StackPanel>
@@ -202,6 +220,8 @@
                 <TextBlock FontWeight="SemiBold" Text="Screenshots and trailers" />
                 <CheckBox IsChecked="{Binding UseSteamMedia}"
                           Content="When a page has no screenshots, get them from the Steam store (matched by title)" />
+                <CheckBox IsChecked="{Binding PreferSteamInfo}"
+                          Content="Use Steam's details over a site's messy ones: proper name, developer, genres, release date, cover and description" />
                 <TextBlock Classes="muted small" TextWrapping="Wrap" IsVisible="{Binding ShowAdvancedOptions}"
                            Text="Optional IGDB lookup (free Twitch developer app at dev.twitch.tv): used when Steam has no match." />
                 <Grid ColumnDefinitions="*,10,*" IsVisible="{Binding ShowAdvancedOptions}">

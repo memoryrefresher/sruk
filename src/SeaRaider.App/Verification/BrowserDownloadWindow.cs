@@ -320,7 +320,7 @@ internal sealed class BrowserDownloadWindow : WinForms.Form
             // Short links: only a real human check brings the window forward. Other hosts keep the old rule (also when
             // nothing has happened for a while).
             var humanCheck = manual || state.Captcha || state.Challenge && page.Elapsed > TimeSpan.FromSeconds(15);
-            var needsYou = humanCheck || !page.AutoClick || !page.ViaShortener && page.Elapsed > AttentionAfter;
+            var needsYou = humanCheck || !page.AutoClick || !page.ViaShortener && !state.Waiting && page.Elapsed > AttentionAfter; // waiting: the host's own timer runs
 
             // The check is done: out of the way again; SeaRaider carries on in the background.
             if (page.NeedsAttention && page.AttentionForCheck && !humanCheck && page.AutoClick)

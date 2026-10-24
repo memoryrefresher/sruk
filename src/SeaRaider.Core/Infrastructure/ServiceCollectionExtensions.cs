@@ -98,7 +98,9 @@ public static class ServiceCollectionExtensions
 
         // Download → extract → install pipeline.
         services.AddSingleton<IHttpDownloader, HttpResumableDownloader>();
-        services.AddSingleton<ITorrentDownloader, MonoTorrentDownloader>();
+        services.AddSingleton<MonoTorrentDownloader>();
+        services.AddSingleton<ITorrentDownloader>(sp => sp.GetRequiredService<MonoTorrentDownloader>());
+        services.AddSingleton<TorrentSourceService>(); // backups torrents as sources: one store entry per game folder
         services.AddSingleton<IArchiveExtractor, ArchiveExtractor>();
         services.AddSingleton<IDownloadAndExtractManager, DownloadAndExtractManager>();
 

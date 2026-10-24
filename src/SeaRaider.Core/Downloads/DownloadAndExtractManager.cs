@@ -1452,7 +1452,7 @@ public sealed class DownloadAndExtractManager(
     private static DownloadLink TorrentLink(DownloadJob job)
     {
         var spec = job.Files[0];
-        return new DownloadLink { Url = spec.Url, Kind = spec.Kind, FileName = spec.OriginalFileName, Host = spec.Host };
+        return new DownloadLink { Url = spec.Url, Kind = spec.Kind, FileName = spec.OriginalFileName, Host = spec.Host, TorrentFolder = spec.TorrentFolder };
     }
 
     /// <summary>Shares a finished torrent in the background (no download slot), then removes its temporary files.</summary>

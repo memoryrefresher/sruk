@@ -247,7 +247,7 @@ public sealed class TrailerPlayerHost : NativeControlHost
             };
             // Whatever plays in the page or in a site's player inside it starts by itself (see AutoplayScript).
             await core.AddScriptToExecuteOnDocumentCreatedAsync(AutoplayScript);
-            await core.AddScriptToExecuteOnDocumentCreatedAsync(LoadingScript);
+            if (!_session.IsGameTrailer) await core.AddScriptToExecuteOnDocumentCreatedAsync(LoadingScript); // streams only
             if (_destroyed) return;
             await StartSoundPipeAsync(environment, core);
             if (_destroyed)
@@ -277,6 +277,15 @@ public sealed class TrailerPlayerHost : NativeControlHost
         (() => {
           if (window.__srAutoplay) return;
           window.__srAutoplay = true;
+          // Every video starts at 10 % volume (turn it up from there; that stays for this video).
+          const quiet = e => {
+            const v = e.target;
+            if (!(v instanceof HTMLMediaElement) || v.__srVolume) return;
+            v.__srVolume = true;
+            try { v.volume = 0.1; } catch (x) {}
+          };
+          document.addEventListener('loadedmetadata', quiet, true);
+          document.addEventListener('play', quiet, true);
           const buttons = ['.vjs-big-play-button', '.jw-icon-display', '.jw-display-icon-container', '.plyr__control--overlaid',
             '.ytp-large-play-button', '.fp-play', '.mejs__overlay-button', '.art-control-play', '.dplayer-mobile-play',
             '.play-button', '.btn-play', '.playbtn', 'button[aria-label="Play"]', 'button[title="Play"]', '[data-plyr="play"]'];
@@ -364,28 +373,26 @@ public sealed class TrailerPlayerHost : NativeControlHost
             document.addEventListener('playing', () => { try { window.top.postMessage({ __sr: 'playing' }, '*'); } catch (e) {} }, true);
             return;
           }
-          const lines = ['Loading...', 'Grab a beer while you wait.... if you earned it.'];
-          let box = null, text = null, timer = 0, step = 0, done = false;
-          const show = () => {
+          // "Loading..." → "Grab a beer while you wait.... if you earned it." (once) → "Loading..." until it plays.
+          let box = null, text = null, timer = 0, done = false;
+          const say = (words, then, hold) => {
             if (done) return;
-            text.textContent = lines[Math.min(step, 1)];
+            text.textContent = words;
             text.style.opacity = '1';
-            timer = setTimeout(() => {
-              text.style.opacity = '0';
-              timer = setTimeout(() => { step = step === 0 ? 1 : 0; show(); }, 800);
-            }, step === 0 ? 1500 : 2600);
+            if (then) timer = setTimeout(() => { text.style.opacity = '0'; timer = setTimeout(then, 800); }, hold);
           };
+          const start = () => say('Loading...', () => say('Grab a beer while you wait.... if you earned it.', () => say('Loading...'), 2800), 1600);
           const make = () => {
             if (box || done) return;
             box = document.createElement('div');
-            box.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;' +
-              'pointer-events:none;transition:opacity .6s ease';
+            box.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:flex-end;justify-content:center;' +
+              'padding-bottom:17vh;pointer-events:none;transition:opacity .6s ease';
             text = document.createElement('div');
             text.style.cssText = 'font:600 22px "Segoe UI",system-ui,sans-serif;color:#eef6fb;letter-spacing:.3px;' +
               'text-shadow:0 2px 14px rgba(0,0,0,.85);opacity:0;transition:opacity .75s ease;padding:10px 22px;text-align:center';
             box.appendChild(text);
             (document.body || document.documentElement).appendChild(box);
-            requestAnimationFrame(show);
+            requestAnimationFrame(start);
           };
           const finish = () => {
             if (done) return;
@@ -396,7 +403,7 @@ public sealed class TrailerPlayerHost : NativeControlHost
           document.addEventListener('playing', finish, true);
           window.addEventListener('message', e => { if (e.data && e.data.__sr === 'playing') finish(); });
           if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', make); else make();
-          setTimeout(finish, 25000);
+          setTimeout(finish, 60000);
         })();
         """;
 

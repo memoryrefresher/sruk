@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SeaRaider.App.Services;
@@ -34,11 +35,16 @@ public sealed partial class SourcesViewModel : PageViewModel
     private readonly IIngestionService _ingestion;
     private readonly NavigationService _navigation;
     private readonly ILiveSearchService _live;
+    private readonly SeaRaider.Core.Catalog.TorrentSourceService _torrentSources;
+    private readonly SeaRaider.Core.Catalog.CatalogIndexService _index;
 
     public SourcesViewModel(ILibraryRepository repository, IIngestionService ingestion, NavigationService navigation,
         GameStatusService status, ILiveSearchService live, UpcomingViewModel upcoming, SourcesFileService sourcesFile,
-        ShellService shell, SiteReadersViewModel siteReaders)
+        ShellService shell, SiteReadersViewModel siteReaders, SeaRaider.Core.Catalog.TorrentSourceService torrentSources,
+        SeaRaider.Core.Catalog.CatalogIndexService index)
     {
+        _index = index;
+        _torrentSources = torrentSources;
         SiteReaders = siteReaders;
         siteReaders.SourceAdded += (_, name) =>
         {
@@ -100,7 +106,22 @@ public sealed partial class SourcesViewModel : PageViewModel
     /// <summary>The names the site prints next to its "Click Here" buttons ("Torrent, Gofile, Pixeldrain").</summary>
     [ObservableProperty] private string? _mirrorLabels;
 
-    public bool IsEmpty => Sources.Count == 0;
+    public bool IsEmpty => Sources.Count == 0 && EmulationSources.Count == 0;
+
+    /// <summary>Console game (ROM) sources: their own section, under the game sources.</summary>
+    public ObservableCollection<SourceItemViewModel> EmulationSources { get; } = [];
+
+    public bool HasEmulationSources => EmulationSources.Count > 0;
+
+    /// <summary>A source whose games are console games: a console's torrent, a ROM site, or one that's mostly ROMs.</summary>
+    private bool IsEmulation(GameSource source)
+    {
+        if (source.IsTorrent && (source.TorrentSystemId is not null || TorrentSourceService.ConsoleIn(source.DisplayName) is not null)) return true;
+        if (SeaRaider.Core.Emulation.GameSystems.FromText($"{source.DisplayName} {source.Url}") is not null) return true;
+        if (Regex.IsMatch($"{source.DisplayName} {source.Url}", @"(?<![a-z])(roms?|emulat\w*|homebrew|retro)(?![a-z])", RegexOptions.IgnoreCase)) return true;
+        var sample = _index.Query(new CatalogQuery(null, CatalogSort.UploadNewest, SourceId: source.Id)).Take(200).ToList();
+        return sample.Count > 0 && sample.Count(e => e.SystemId is not null) * 2 > sample.Count;
+    }
 
     public override void OnNavigatedTo()
     {
@@ -114,22 +135,24 @@ public sealed partial class SourcesViewModel : PageViewModel
     private void Reload()
     {
         Sources.Clear();
+        EmulationSources.Clear();
         foreach (var source in _repository.GetSources())
         {
             var row = new SourceItemViewModel(source, this);
             row.ApplyProgress(_ingestion.GetLastProgress(source.Id), _ingestion.IsCrawling(source.Id));
-            Sources.Add(row);
+            (IsEmulation(source) ? EmulationSources : Sources).Add(row);
         }
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(HasEmulationSources));
     }
 
     private void OnCrawlStatusChanged(CrawlStatusEventArgs e)
     {
-        var row = Sources.FirstOrDefault(s => s.Id == e.SourceId);
+        var row = Sources.Concat(EmulationSources).FirstOrDefault(s => s.Id == e.SourceId);
         if (row is null)
         {
             Reload();
-            row = Sources.FirstOrDefault(s => s.Id == e.SourceId);
+            row = Sources.Concat(EmulationSources).FirstOrDefault(s => s.Id == e.SourceId);
         }
         row?.ApplyProgress(e.Progress, e.IsRunning);
 
@@ -143,9 +166,44 @@ public sealed partial class SourcesViewModel : PageViewModel
 
     private bool CanAddSource() => !string.IsNullOrWhiteSpace(NewUrl);
 
+    /// <summary>A backups torrent from a file on this PC: every game folder in it goes in the store.</summary>
+    [RelayCommand]
+    private Task AddTorrentFileAsync() => RunSafeAsync(async () =>
+    {
+        if (await _shell.PickTorrentAsync() is not { } path) return;
+        await AddTorrentAsync(path);
+    });
+
+    private async Task AddTorrentAsync(string origin)
+    {
+        AppendLog(origin.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase)
+            ? "Reading the torrent's file list from its peers (needs someone sharing it)…"
+            : "Reading the torrent's file list…");
+        try
+        {
+            var (source, games) = await Task.Run(() => _torrentSources.AddAsync(origin));
+            NewUrl = string.Empty;
+            AppendLog($"Added {source.DisplayName}: {games} games in the store. Each downloads only its own folder from the torrent.");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            AppendLog($"Couldn't add the torrent: {ex.Message}");
+            throw;
+        }
+        finally
+        {
+            Reload();
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanAddSource))]
     private Task AddSourceAsync() => RunSafeAsync(async () =>
     {
+        if (SeaRaider.Core.Catalog.TorrentSourceService.IsTorrentAddress(NewUrl))
+        {
+            await AddTorrentAsync(NewUrl);
+            return;
+        }
         var template = new GameSource
         {
             Mode = (CrawlMode)Math.Max(0, CrawlModes.ToList().IndexOf(SelectedCrawlMode)),
@@ -211,10 +269,34 @@ public sealed partial class SourcesViewModel : PageViewModel
     internal void StartCrawl(SourceItemViewModel row, bool fullRescan) => RunSafe(() =>
     {
         if (row.IsWebGame) return; // one game, nothing to index
+        if (_repository.GetSource(row.Id) is { IsTorrent: true } torrent)
+        {
+            AppendLog($"{row.Name}: reading the torrent's list…");
+            _ = Task.Run(() => _torrentSources.Refresh(torrent)).ContinueWith(t => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                AppendLog(t.IsFaulted ? $"{row.Name}: {t.Exception!.InnerException?.Message}" : $"{row.Name}: {t.Result} games in the torrent");
+                Reload();
+            }), TaskScheduler.Default);
+            return;
+        }
         _ = _ingestion.StartCrawl(row.Id, fullRescan);
         row.ApplyProgress(CrawlProgress.Starting, isRunning: true);
         AppendLog(fullRescan ? $"{row.Name}: full rescan started" : $"{row.Name}: checking for new games");
     });
+
+    /// <summary>A backups torrent's console, chosen in its row: saved, and its games filed under it again.</summary>
+    internal void SetTorrentConsole(SourceItemViewModel row, string? systemId)
+    {
+        if (_repository.GetSource(row.Id) is not { IsTorrent: true } source) return;
+        source.TorrentSystemId = systemId;
+        _repository.UpsertSource(source);
+        AppendLog($"{source.DisplayName}: {(systemId is null ? "console worked out from the names" : $"games filed under {SeaRaider.Core.Emulation.GameSystems.Find(systemId)?.Name}")}…");
+        _ = Task.Run(() => _torrentSources.Refresh(source)).ContinueWith(t => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            AppendLog(t.IsFaulted ? $"{source.DisplayName}: {t.Exception!.InnerException?.Message}" : $"{source.DisplayName}: {t.Result} games");
+            Reload();
+        }), TaskScheduler.Default);
+    }
 
     /// <summary>Saves a source's mirror labels; games are read again with them the next time they're opened.</summary>
     internal void SaveMirrorLabels(SourceItemViewModel row, string? labels) => RunSafe(() =>
@@ -321,7 +403,27 @@ public sealed partial class SourceItemViewModel : ViewModelBase
 
     public Guid Id => _source.Id;
     public string Name => _source.DisplayName;
-    public string Url => _source.Url;
+    public string Url => _source.IsTorrent ? $"Backups torrent · {_source.TorrentOrigin}" : _source.Url;
+
+    /// <summary>A backups torrent (its console can be chosen).</summary>
+    public bool IsTorrent => _source.IsTorrent;
+
+    /// <summary>"Work it out from the names", then every console.</summary>
+    public static IReadOnlyList<SystemChoice> ConsoleChoices { get; } =
+        new[] { new SystemChoice(null, "Work it out from the names") }
+            .Concat(SeaRaider.Core.Emulation.GameSystems.All.Select(s => new SystemChoice(s.Id, s.Name)))
+            .ToList();
+
+    /// <summary>The console this torrent's games are for: chosen here, every game is filed under it.</summary>
+    public SystemChoice SelectedConsole
+    {
+        get => ConsoleChoices.FirstOrDefault(c => string.Equals(c.Id, _source.TorrentSystemId, StringComparison.OrdinalIgnoreCase)) ?? ConsoleChoices[0];
+        set
+        {
+            if (value is null || string.Equals(value.Id, _source.TorrentSystemId, StringComparison.OrdinalIgnoreCase)) return;
+            _owner.SetTorrentConsole(this, value.Id);
+        }
+    }
 
     /// <summary>A browser game's own site: one game, nothing to index; Play opens it in SeaRaider's game window.</summary>
     public bool IsWebGame

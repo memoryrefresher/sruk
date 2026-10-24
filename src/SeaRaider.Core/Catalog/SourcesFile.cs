@@ -112,6 +112,13 @@ public static class SourcesFile
 
             // "https://site.com  # my favourite": keep the address only.
             var address = line.Split([' ', '\t'], 2, StringSplitOptions.RemoveEmptyEntries)[0];
+            // A backups torrent's magnet link (Sources): kept as it is.
+            if (address.StartsWith("magnet:?", StringComparison.OrdinalIgnoreCase))
+            {
+                current = null;
+                if (section == 's' && seen.Add("s|" + Key(address))) sources.Add(address);
+                continue;
+            }
             if (!address.Contains("://", StringComparison.Ordinal)) address = "https://" + address;
             if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https") || !uri.Host.Contains('.'))
             {
@@ -232,6 +239,9 @@ public static class SourcesFile
     public static string Key(string url)
     {
         var key = url.Trim().ToLowerInvariant();
+        // Magnets (and SeaRaider's own torrent sources) by the torrent's info hash: the same torrent however it's written.
+        if (System.Text.RegularExpressions.Regex.Match(key, @"xt=urn:btih:([0-9a-z]+)|^https?://torrent\.local/([0-9a-f]+)") is { Success: true } torrent)
+            return "torrent:" + (torrent.Groups[1].Success ? torrent.Groups[1].Value : torrent.Groups[2].Value);
         var scheme = key.IndexOf("://", StringComparison.Ordinal);
         if (scheme >= 0) key = key[(scheme + 3)..];
         if (key.StartsWith("www.", StringComparison.Ordinal)) key = key[4..];

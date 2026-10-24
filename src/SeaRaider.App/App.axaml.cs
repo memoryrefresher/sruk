@@ -35,7 +35,8 @@ public sealed partial class App : Application
         // downloads that don't say who's asking.
         var imageClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         imageClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) SeaRaider/0.9");
-        ImageLoader.AsyncImageLoader = new DiskCachedWebImageLoader(imageClient, true, AppPaths.ImageCacheDirectory);
+        // Pictures decoded at a sensible size and only the recently used kept in memory (thousands of ROM box arts crashed the old one).
+        ImageLoader.AsyncImageLoader = new BoundedImageLoader(imageClient, Path.Combine(AppPaths.ImageCacheDirectory, "v2"));
 
         // Load the store's in-memory index in the background; the store page awaits it when first shown.
         _ = _services.GetRequiredService<CatalogIndexService>().EnsureLoadedAsync();

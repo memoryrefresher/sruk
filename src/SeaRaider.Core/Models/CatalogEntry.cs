@@ -28,6 +28,13 @@ public sealed class CatalogEntry
     public bool ReleaseFromSteam { get; set; }
     public bool DetailsLoaded { get; set; }
 
+    /// <summary>Marked as not in English when listed (a ROM's region tags).</summary>
+    public bool NonEnglish { get; set; }
+
+    /// <summary>Not in English: marked so, or a title in another script (Japanese, Cyrillic …).</summary>
+    [BsonIgnore]
+    public bool IsNonEnglish => NonEnglish || Catalog.TorrentSourceService.HasNonLatinScript(Title);
+
     /// <summary>The game's real release date, or null: a "release date" that is just the post's own date (the same day it was
     /// uploaded, from older reads) doesn't count. See <see cref="ReleaseDates.IsReal"/>.</summary>
     [BsonIgnore]
@@ -95,6 +102,7 @@ public sealed class CatalogEntry
         UploadedAtUtc = game.UploadedAtUtc,
         ReleaseFromSteam = game.ReleaseDateFromSteam,
         DetailsLoaded = game.DetailsLoaded,
+        NonEnglish = game.NonEnglish,
         FetchedAtUtc = game.FetchedAtUtc,
     };
 }

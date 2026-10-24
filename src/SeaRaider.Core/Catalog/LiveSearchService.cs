@@ -78,7 +78,8 @@ public sealed class LiveSearchService(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var sources = repository.GetSources()
-            .Where(s => s.IsEnabled && s.SearchMode != SearchMode.Disabled && (sourceIds is null || sourceIds.Contains(s.Id)))
+            // Backups torrents aren't searched live: all their games are in the store already (searched with the rest).
+            .Where(s => s.IsEnabled && !s.IsTorrent && s.SearchMode != SearchMode.Disabled && (sourceIds is null || sourceIds.Contains(s.Id)))
             .ToList();
         if (sources.Count == 0) yield break;
 
@@ -108,6 +109,20 @@ public sealed class LiveSearchService(
 
         try
         {
+            // A backups torrent: its games are already in the store (read from the torrent's file list); the list and search
+            // come from there.
+            if (source.IsTorrent)
+            {
+                var all = index.Query(new CatalogQuery(null, CatalogSort.TitleAscending, SourceId: source.Id)).ToList();
+                if (!search.IsEmpty)
+                    all = all.Select(e => (Entry: e, Score: index.Score(search, e)))
+                        .Where(x => x.Score >= SearchScorer.MinimumScore).OrderByDescending(x => x.Score).Select(x => x.Entry).ToList();
+                var pageEntries = all.Skip((page - 1) * PageSize).Take(PageSize).ToList();
+                var torrentBatch = new LiveSearchBatch(source.Id, sourceName, pageEntries, all.Count > page * PageSize, null);
+                _cache[cacheKey] = (DateTime.UtcNow, torrentBatch);
+                return torrentBatch;
+            }
+
             // A dedicated reader (readers\*.json) with a list for this kind of page wins over everything else.
             var reader = readers.Find(source);
             var readerUrl = reader?.Listing is not null ? SiteReaderParser.BuildUrl(reader, query, page) : null;

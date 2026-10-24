@@ -189,16 +189,16 @@ public sealed partial class MediaViewModel : PageViewModel
     {
         var words = BrowseSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var ofSource = _allTiles.Where(t => _chosenSource is null || t.SourceId == _chosenSource).ToList();
-        ReloadTypeChips(ofSource.Where(t => t.NeedsResolve).ToList());
+        ReloadTypeChips(ofSource.Where(t => t.InSections).ToList());
         // A type chosen: only titles of that type (videos have no type).
-        var shown = ofSource.Where(t => (_chosenType is null || (t.NeedsResolve && string.Equals(TypeOf(t), _chosenType, StringComparison.OrdinalIgnoreCase))) &&
+        var shown = ofSource.Where(t => (_chosenType is null || (t.InSections && string.Equals(TypeOf(t), _chosenType, StringComparison.OrdinalIgnoreCase))) &&
                                         words.All(w => t.Title.Contains(w, StringComparison.CurrentCultureIgnoreCase) ||
                                                        t.SourceName.Contains(w, StringComparison.CurrentCultureIgnoreCase) ||
                                                        (t.Category?.Contains(w, StringComparison.CurrentCultureIgnoreCase) ?? false) ||
                                                        (t.Channel?.Contains(w, StringComparison.CurrentCultureIgnoreCase) ?? false)))
             .ToList();
-        BrowseTitles.ResetWith(shown.Where(t => t.NeedsResolve));
-        BrowseVideos.ResetWith(shown.Where(t => !t.NeedsResolve));
+        BrowseTitles.ResetWith(shown.Where(t => t.InSections));
+        BrowseVideos.ResetWith(shown.Where(t => !t.InSections));
 
         // Sorted by type: live first inside each, the biggest types first, "Other" last.
         BrowseGroups.Clear();
@@ -484,6 +484,15 @@ public sealed partial class MediaTileViewModel(MediaViewModel owner, MediaItem i
     /// <summary>A title from a site's list: its page is read for the player when it's played.</summary>
     public bool NeedsResolve => item.NeedsResolve;
 
+    /// <summary>A Counter-Strike tournament's stream or video (from any link): shown in its own section.</summary>
+    public bool IsCounterStrike => item.Category == Core.Scraping.EsportsMatches.CounterStrike;
+
+    /// <summary>Sorted into a section of Browse (a site's titles by type, and Counter-Strike matches).</summary>
+    public bool InSections => item.NeedsResolve || IsCounterStrike;
+
+    /// <summary>The event a match is part of ("IEM Cologne 2026 · Playoffs").</summary>
+    public string? EventName => item.EventName;
+
     /// <summary>Its page is being read for the player.</summary>
     [ObservableProperty] private bool _isResolving;
 
@@ -522,7 +531,9 @@ public sealed partial class MediaTileViewModel(MediaViewModel owner, MediaItem i
     public string AwayMonogram => Initials((MediaTitleParser.Matchup(item.Title)?.Away) ?? string.Empty);
 
     /// <summary>Under a title's name: its sport and the site ("Football · streamed.pk").</summary>
-    public string TitleDetail => string.Join(" · ", new[] { item.Category, SourceName }.Where(t => !string.IsNullOrEmpty(t)));
+    public string TitleDetail => IsCounterStrike
+        ? item.EventName ?? item.Channel ?? SourceName
+        : string.Join(" · ", new[] { item.Category, SourceName }.Where(t => !string.IsNullOrEmpty(t)));
 
     private static string Initials(string name) =>
         string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(w => char.IsLetterOrDigit(w[0])).Take(2).Select(w => char.ToUpperInvariant(w[0])));
@@ -533,7 +544,7 @@ public sealed partial class MediaTileViewModel(MediaViewModel owner, MediaItem i
     public bool IsLive => item.IsLive;
     public string Monogram => string.Concat(item.Title.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpperInvariant(w[0])));
 
-    public string Detail => item.NeedsResolve
+    public string Detail => InSections
         ? TitleDetail // a title from a site's list: its sport and the site
         : string.Join(" · ", new[] { item.Channel, MediaViewModel.Age(item.PublishedUtc) }.Where(s => !string.IsNullOrEmpty(s)));
 

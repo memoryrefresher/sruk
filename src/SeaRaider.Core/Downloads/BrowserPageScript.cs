@@ -167,8 +167,13 @@ public static partial class BrowserPageScript
           const answered = [...document.querySelectorAll('textarea[name="g-recaptcha-response"], textarea[name="h-captcha-response"], input[name="cf-turnstile-response"]')]
             .some(e => (e.value || '').length > 20);
           res.captcha = [...widgets].some(visible) && !answered;
+          // Ticked ("Verify you are human" done): the host fills its download button by itself in a few seconds (DataNodes).
+          // Not the user's turn any more, even while the page still says "verify you are human": the window goes away.
+          if (answered && !res.captcha) {
+            if (buttons.length === 0 && nexts.length === 0) { res.waiting = true; res.note = 'verified, waiting for the button'; return JSON.stringify(res); }
+          }
           // A site's own check (an image or puzzle captcha) with no download button yet: the user's turn.
-          if (!res.captcha && buttons.length === 0 &&
+          else if (!res.captcha && buttons.length === 0 &&
               /security check|captcha|are you (a )?human|not a robot|verify (that )?you('re| are) (a )?human|human verification/i.test(bodyText))
             res.captcha = true;
           if (res.captcha) return JSON.stringify(res);

@@ -69,14 +69,38 @@ public sealed class MonoTorrentDownloader(
         var engine = await GetEngineAsync(cancellationToken).ConfigureAwait(false);
         var manager = await AddOrGetManagerAsync(engine, link, saveDirectory, cancellationToken).ConfigureAwait(false);
 
+        // Two games from one backups torrent: the engine holds a torrent once, so the second waits for the first (a paused one
+        // makes way; it picks up again where it was when resumed).
+        while (!string.IsNullOrWhiteSpace(link.TorrentFolder) &&
+               !string.Equals(Path.GetFullPath(manager.SavePath).TrimEnd('\\', '/'), Path.GetFullPath(saveDirectory).TrimEnd('\\', '/'),
+                   StringComparison.OrdinalIgnoreCase))
+        {
+            if (manager.State is TorrentState.Stopped or TorrentState.Error)
+            {
+                try { await engine.RemoveAsync(manager, RemoveMode.CacheDataOnly).ConfigureAwait(false); }
+                catch (Exception ex) { logger.LogDebug(ex, "Ignoring error removing a paused torrent"); }
+            }
+            else
+            {
+                progress?.Report(new TransferProgress(0, 0, 0, Detail: "Waiting for another game from this torrent to finish…"));
+                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false);
+            }
+            manager = await AddOrGetManagerAsync(engine, link, saveDirectory, cancellationToken).ConfigureAwait(false);
+        }
+
         var discovery = new PeerDiscoveryStats();
         manager.PeersFound += discovery.OnPeersFound;
+        // A backups torrent's one game: only its folder is downloaded (the rest of the torrent is skipped).
+        var only = string.IsNullOrWhiteSpace(link.TorrentFolder) ? null : link.TorrentFolder.Replace('\\', '/').Trim('/');
+        var selected = false;
+        if (only is not null) keepForSeeding = false; // shared by the whole torrent's own seeder, not per game
 
         try
         {
             if (settings.AddPublicTrackers)
                 await AddPublicTrackersAsync(manager, settings.PublicTrackers).ConfigureAwait(false);
 
+            if (only is not null && manager.HasMetadata) selected = await SelectFolderAsync(manager, saveDirectory, only).ConfigureAwait(false);
             if (manager.State is TorrentState.Stopped or TorrentState.Error)
                 await manager.StartAsync().ConfigureAwait(false);
             logger.LogInformation("Torrent started: {Name} ({Trackers} tracker tier(s), DHT {Dht} with {Nodes} nodes)",
@@ -87,9 +111,15 @@ public sealed class MonoTorrentDownloader(
                 : (TimeSpan?)null;
             var started = Stopwatch.StartNew();
 
-            while (!IsFinished(manager))
+            while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (only is not null && !selected && manager.HasMetadata)
+                {
+                    selected = await SelectFolderAsync(manager, saveDirectory, only).ConfigureAwait(false);
+                    if (!selected) throw new InvalidDataException($"\"{only}\" isn't in this torrent any more. Add the source again to read its new list.");
+                }
+                if (only is null ? IsFinished(manager) : selected && IsFinishedSelection(manager)) break;
 
                 if (manager.State == TorrentState.Error)
                 {
@@ -102,7 +132,7 @@ public sealed class MonoTorrentDownloader(
                     throw new TimeoutException(NoPeersMessage(engine, manager, limit));
 
                 await ApplyJobLimitsAsync(manager, TransferThrottle.Current).ConfigureAwait(false);
-                ReportProgress(engine, manager, peersSeen, started.Elapsed, progress);
+                ReportProgress(engine, manager, peersSeen, started.Elapsed, progress, only is not null);
                 await Task.Delay(PollInterval, cancellationToken).ConfigureAwait(false);
             }
         }
@@ -117,10 +147,20 @@ public sealed class MonoTorrentDownloader(
             manager.PeersFound -= discovery.OnPeersFound;
         }
 
-        ReportProgress(engine, manager, discovery.Total, TimeSpan.Zero, progress);
+        ReportProgress(engine, manager, discovery.Total, TimeSpan.Zero, progress, only is not null);
         await StopQuietlyAsync(manager).ConfigureAwait(false);
 
-        var files = manager.Files.Select(f => f.FullPath).Where(File.Exists).ToList();
+        var files = manager.Files
+            .Where(f => only is null || f.Priority != Priority.DoNotDownload)
+            .Select(f => f.FullPath).Where(File.Exists).ToList();
+        if (only is not null)
+        {
+            // Pieces shared with the next game's first file leave a partial copy of it: not part of this download.
+            var wanted = files.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var stray in manager.Files.Where(f => f.Priority == Priority.DoNotDownload).Select(f => f.FullPath))
+                if (!wanted.Contains(stray) && File.Exists(stray))
+                    try { File.Delete(stray); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
         logger.LogInformation("Torrent complete: {Count} files in {Dir}", files.Count, saveDirectory);
 
         if (keepForSeeding)
@@ -231,16 +271,59 @@ public sealed class MonoTorrentDownloader(
     // Progress & diagnostics
     // =============================================================================================
 
+    /// <summary>Downloads only the files under <paramref name="folder"/> (a path inside the torrent, with its top folder).</summary>
+    private static async Task<bool> SelectFolderAsync(TorrentManager manager, string saveDirectory, string folder)
+    {
+        var any = false;
+        foreach (var file in manager.Files)
+        {
+            var inside = Path.GetRelativePath(saveDirectory, file.FullPath).Replace('\\', '/');
+            var wanted = inside.Equals(folder, StringComparison.OrdinalIgnoreCase) ||
+                         inside.StartsWith(folder + "/", StringComparison.OrdinalIgnoreCase);
+            any |= wanted;
+            await manager.SetFilePriorityAsync(file, wanted ? Priority.Normal : Priority.DoNotDownload).ConfigureAwait(false);
+        }
+        return any;
+    }
+
+    /// <summary>Every chosen file is complete.</summary>
+    private static bool IsFinishedSelection(TorrentManager manager) =>
+        manager.HasMetadata && manager.Files.Where(f => f.Priority != Priority.DoNotDownload).All(f => f.BitField.AllTrue);
+
+    /// <summary>The torrent file itself, from a magnet (asked of the peers), an address or a local file: for a backups source.</summary>
+    public async Task<byte[]> GetTorrentFileAsync(string origin, CancellationToken ct)
+    {
+        if (origin.StartsWith("magnet:", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!MagnetLink.TryParse(origin, out var magnet) || magnet is null) throw new InvalidDataException("This magnet link is malformed.");
+            var engine = await GetEngineAsync(ct).ConfigureAwait(false);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromMinutes(3));
+            var metadata = await engine.DownloadMetadataAsync(magnet, timeout.Token).ConfigureAwait(false);
+            return metadata.ToArray();
+        }
+        if (File.Exists(origin)) return await File.ReadAllBytesAsync(origin, ct).ConfigureAwait(false);
+        if (Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsFile) return await File.ReadAllBytesAsync(uri.LocalPath, ct).ConfigureAwait(false);
+        return await FetchTorrentFileAsync(origin, ct).ConfigureAwait(false);
+    }
+
     private static bool IsFinished(TorrentManager manager) =>
         manager.HasMetadata && (manager.Complete || manager.State == TorrentState.Seeding);
 
     private static void ReportProgress(ClientEngine engine, TorrentManager manager, int peersFound, TimeSpan elapsed,
-        IProgress<TransferProgress>? progress)
+        IProgress<TransferProgress>? progress, bool selection = false)
     {
         if (progress is null) return;
 
         var total = manager.Torrent?.Size ?? 0;
         var done = (long)(total * (manager.Progress / 100.0));
+        if (selection && manager.HasMetadata)
+        {
+            // One game out of the torrent: its own size and how much of it is here.
+            var chosen = manager.Files.Where(f => f.Priority != Priority.DoNotDownload).ToList();
+            total = chosen.Sum(f => f.Length);
+            done = Math.Min(total, chosen.Sum(f => f.BytesDownloaded()));
+        }
         var connected = manager.Peers.Seeds + manager.Peers.Leechs;
 
         string detail;

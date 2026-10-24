@@ -37,6 +37,9 @@ public sealed class MediaSource
     [BsonId]
     public Guid Id { get; set; } = Guid.NewGuid();
 
+    /// <summary>The site draws its list by script (or blocks SeaRaider's own requests): read in SeaRaider's browser.</summary>
+    public bool NeedsBrowser { get; set; }
+
     /// <summary>What the user added.</summary>
     public string Url { get; set; } = string.Empty;
 
@@ -109,4 +112,7 @@ public sealed class MediaItem
 
     /// <summary>The title is a match between two sides ("Bayern Munich vs Arsenal"): shown as two crests.</summary>
     public bool IsMatchup { get; set; }
+
+    /// <summary>An esports match's event ("IEM Cologne 2026 · Playoffs"), shown under the match's name.</summary>
+    public string? EventName { get; set; }
 }

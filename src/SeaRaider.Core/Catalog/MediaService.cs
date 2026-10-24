@@ -13,8 +13,41 @@ namespace SeaRaider.Core.Catalog;
 /// every half hour. Events are raised on background threads.
 /// </summary>
 public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryRepository repository, ILogger<MediaService> logger,
-    IEnumerable<IBrowserPlayerFinder> browserFinders, MediaArtworkService artwork) : IDisposable
+    IEnumerable<IBrowserPlayerFinder> browserFinders, MediaArtworkService artwork, WebChallenge.IChallengeResolver browser) : IDisposable
 {
+    /// <summary>
+    /// The page as a browser shows it, for sites whose list of events is drawn by script (Streamed and other live-sports
+    /// sites) or that block SeaRaider's own requests: read in SeaRaider's invisible browser. Null when that isn't possible.
+    /// </summary>
+    private async Task<string?> RenderedAsync(Uri page, CancellationToken ct)
+    {
+        if (!browser.IsAvailable) return null;
+        try
+        {
+            var rendered = await browser.FetchPageAsync(page, ct).ConfigureAwait(false);
+            return rendered is { Content.Length: > 200 } ? rendered.Content : null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogInformation(ex, "Browser read of {Page} failed", page);
+            return null;
+        }
+    }
+
+    /// <summary>The page's HTML: SeaRaider's own request, or the browser's when the site refuses it (403, 503, a bot check).</summary>
+    private async Task<string> PageHtmlAsync(Uri page, CancellationToken ct)
+    {
+        try
+        {
+            return await Pages.GetStringAsync(page, ct).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.ServiceUnavailable
+                                                  or System.Net.HttpStatusCode.TooManyRequests)
+        {
+            return await RenderedAsync(page, ct).ConfigureAwait(false) ?? throw ex;
+        }
+    }
+
     /// <summary>Sources whose titles are having their pictures looked up right now (one lookup run per source).</summary>
     private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, byte> _artworkRunning = new();
 
@@ -173,6 +206,7 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
             };
             await FillMissingTitlesAsync(items, ct).ConfigureAwait(false);
             items = items.Where(i => i.Title.Length > 0).ToList();
+            foreach (var item in items) EsportsMatches.Apply(item); // Counter-Strike matches: their own section, named after the match
 
             if (!StillThere(source)) return; // removed while it was being read
 
@@ -290,7 +324,7 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
     private async Task<List<MediaItem>> ReadFeedOrPageAsync(MediaSource source, CancellationToken ct)
     {
         var url = source.FeedUrl ?? source.Url;
-        var content = await Pages.GetStringAsync(url, ct).ConfigureAwait(false);
+        var content = await PageHtmlAsync(new Uri(url), ct).ConfigureAwait(false);
         if (MediaListParser.LooksLikeFeed(content))
         {
             source.Kind = MediaSourceKind.Feed;
@@ -313,6 +347,21 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
                 source.Kind = MediaSourceKind.Catalog;
                 return await CrawlCatalogAsync(source, doc, pageUri, titles, ct).ConfigureAwait(false);
             }
+        }
+
+        // Nothing in the page as sent: its list may be drawn by script. Read it as the browser shows it.
+        if (found.Count == 0 && await RenderedAsync(pageUri, ct).ConfigureAwait(false) is { } rendered)
+        {
+            using var doc = await MediaTitleParser.OpenAsync(rendered, pageUri, ct).ConfigureAwait(false);
+            var titles = MediaTitleParser.ParseTitles(doc, pageUri, source.Id);
+            if (LooksLikeTitleList(titles, doc, pageUri, 0))
+            {
+                source.Kind = MediaSourceKind.Catalog;
+                source.NeedsBrowser = true;
+                return await CrawlCatalogAsync(source, doc, pageUri, titles, ct).ConfigureAwait(false);
+            }
+            (found, _) = await MediaListParser.ParsePageAsync(rendered, pageUri, source.Id, ct).ConfigureAwait(false);
+            if (found.Count > 0) content = rendered;
         }
 
         if (found.Count == 0) found = PageAsPlayer(source, content, pageUri, pageTitle);
@@ -339,9 +388,21 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
     private async Task<List<MediaItem>> ReadCatalogAsync(MediaSource source, CancellationToken ct)
     {
         var pageUri = new Uri(source.FeedUrl ?? source.Url);
-        var content = await Pages.GetStringAsync(pageUri, ct).ConfigureAwait(false);
-        using var doc = await MediaTitleParser.OpenAsync(content, pageUri, ct).ConfigureAwait(false);
+        var content = source.NeedsBrowser
+            ? await RenderedAsync(pageUri, ct).ConfigureAwait(false) ?? await PageHtmlAsync(pageUri, ct).ConfigureAwait(false)
+            : await PageHtmlAsync(pageUri, ct).ConfigureAwait(false);
+        var doc = await MediaTitleParser.OpenAsync(content, pageUri, ct).ConfigureAwait(false);
         var titles = MediaTitleParser.ParseTitles(doc, pageUri, source.Id);
+        if (titles.Count == 0 && !source.NeedsBrowser && await RenderedAsync(pageUri, ct).ConfigureAwait(false) is { } rendered)
+        {
+            // The list is drawn by script now: read it in the browser from here on.
+            doc.Dispose();
+            content = rendered;
+            doc = await MediaTitleParser.OpenAsync(content, pageUri, ct).ConfigureAwait(false);
+            titles = MediaTitleParser.ParseTitles(doc, pageUri, source.Id);
+            if (titles.Count > 0) source.NeedsBrowser = true;
+        }
+        using var docScope = doc;
         if (titles.Count == 0)
         {
             // Nothing listed right now (between events, or the site hiccuped): it stays a site, and the next check reads it
@@ -406,7 +467,9 @@ public sealed class MediaService(IHttpClientFactory httpClientFactory, ILibraryR
                     if (doc is null)
                     {
                         await Task.Delay(PageDelay, ct).ConfigureAwait(false);
-                        var content = await Pages.GetStringAsync(url, ct).ConfigureAwait(false);
+                        var content = source.NeedsBrowser
+                            ? await RenderedAsync(url, ct).ConfigureAwait(false) ?? await Pages.GetStringAsync(url, ct).ConfigureAwait(false)
+                            : await Pages.GetStringAsync(url, ct).ConfigureAwait(false);
                         doc = owned = await MediaTitleParser.OpenAsync(content, url, ct).ConfigureAwait(false);
                     }
                     var titles = MediaTitleParser.ParseTitles(doc, url, source.Id, all.Count);

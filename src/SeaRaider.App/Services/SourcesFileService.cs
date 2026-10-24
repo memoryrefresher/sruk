@@ -19,7 +19,7 @@ namespace SeaRaider.App.Services;
 /// If the install folder can't be written (e.g. under Program Files), the file lives in SeaRaider's data folder instead.
 /// </summary>
 public sealed class SourcesFileService(ILibraryRepository repository, IIngestionService ingestion, UpcomingService upcoming,
-    MediaService media, ILogger<SourcesFileService> logger) : IDisposable
+    MediaService media, SeaRaider.Core.Catalog.TorrentSourceService torrentSources, ILogger<SourcesFileService> logger) : IDisposable
 {
     private static readonly string InstallPath = Path.Combine(AppContext.BaseDirectory, SourcesFile.FileName);
     private static readonly string FallbackPath = Path.Combine(AppPaths.DataDirectory, SourcesFile.FileName);
@@ -59,7 +59,7 @@ public sealed class SourcesFileService(ILibraryRepository repository, IIngestion
     /// </summary>
     private void ApplyFileChanges(SourcesList inFile, SourcesList? lastWritten)
     {
-        var dbSources = repository.GetSources().ToDictionary(s => SourcesFile.Key(s.Url), s => s.Id, StringComparer.Ordinal);
+        var dbSources = repository.GetSources().GroupBy(s => SourcesFile.Key(s.Url)).ToDictionary(g => g.Key, g => g.First().Id, StringComparer.Ordinal);
         var dbUpcomingSources = repository.GetUpcomingSources();
         var dbUpcoming = new Dictionary<string, UpcomingSource>(StringComparer.Ordinal);
         foreach (var s in dbUpcomingSources) dbUpcoming.TryAdd(IdentityOf(s), s);
@@ -116,11 +116,31 @@ public sealed class SourcesFileService(ILibraryRepository repository, IIngestion
     {
         try
         {
-            Task.Run(() => ingestion.AddSourceAsync(url)).GetAwaiter().GetResult();
+            // A backups torrent: its game list is read from the torrent (from whoever is sharing it, for a magnet).
+            if (SeaRaider.Core.Catalog.TorrentSourceService.IsTorrentAddress(url))
+            {
+                // In the background: a magnet's list comes from its peers, which can take a while (never hold up the start).
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var (source, games) = await torrentSources.AddAsync(url).ConfigureAwait(false);
+                        logger.LogInformation("Added backups torrent {Name} ({Games} games) from the sources file", source.DisplayName, games);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning("Skipped torrent {Url} from the sources file: {Reason}", url, ex.Message);
+                    }
+                });
+                return true;
+            }
+            else
+                Task.Run(() => ingestion.AddSourceAsync(url)).GetAwaiter().GetResult();
             logger.LogInformation("Added source {Url} from the sources file", url);
             return true;
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UriFormatException)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UriFormatException or InvalidDataException
+                                       or HttpRequestException or OperationCanceledException or IOException)
         {
             logger.LogWarning("Skipped {Url} from the sources file: {Reason}", url, ex.Message);
             return false;
@@ -189,7 +209,7 @@ public sealed class SourcesFileService(ILibraryRepository repository, IIngestion
     public Task ExportAsync(string path) => File.WriteAllTextAsync(path, Current());
 
     private string Current() => SourcesFile.FormatEntries(
-        repository.GetSources().Select(s => s.Url),
+        repository.GetSources().Select(SeaRaider.Core.Catalog.TorrentSourceService.ShareAddress),
         repository.GetUpcomingSources().Select(s => new UpcomingEntry(s.Url, s.IsCustom ? s.StartHtml : null, s.IsCustom ? s.EndHtml : null, s.Enabled)),
         repository.GetMediaSources().Select(s => s.Url));
 

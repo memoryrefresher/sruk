@@ -50,6 +50,17 @@ public sealed partial class MirrorOptionViewModel(
     [RelayCommand]
     private void Select() => select(this);
 
+    /// <summary>Every link this option stands for (all parts / files): what hiding it hides.</summary>
+    public IReadOnlyList<string> Urls { get; init; } = [];
+
+    /// <summary>Hides a download option that doesn't work (set by the game page).</summary>
+    public Action<MirrorOptionViewModel>? HideAction { get; init; }
+
+    public bool CanHide => HideAction is not null && Link is not null;
+
+    [RelayCommand]
+    private void Hide() => HideAction?.Invoke(this);
+
     public override string ToString() => Name;
 }
 
@@ -456,7 +467,10 @@ public sealed partial class GameDetailViewModel : PageViewModel, IDisposable
         Mirrors.Add(AutomaticMirror);
         TopMirrors.Clear();
 
-        var groups = DownloadLinkDeduplicator.Group(_game.DownloadLinks);
+        var hiddenSet = _repository.GetSettings().HiddenDownloadLinks.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allGroups = DownloadLinkDeduplicator.Group(_game.DownloadLinks);
+        var groups = allGroups.Where(g => !g.Links.Any(l => hiddenSet.Contains(l.Url))).ToList();
+        HiddenOptionCount = allGroups.Count - groups.Count;
 
         // Every way to download sits in the one drop-down: Automatic first, then each kind, with FuckingFast and
         // FileKeeper leading their section when the page has them.
@@ -467,7 +481,11 @@ public sealed partial class GameDetailViewModel : PageViewModel, IDisposable
             foreach (var g in section)
             {
                 var (note, browserOnly) = AccessNote(g);
-                var option = new MirrorOptionViewModel(g.Mirror, g.Tag, g.SizeText ?? pageSize, note, g.Representative, browserOnly, SelectMirror);
+                var option = new MirrorOptionViewModel(g.Mirror, g.Tag, g.SizeText ?? pageSize, note, g.Representative, browserOnly, SelectMirror)
+                {
+                    Urls = g.Links.Select(l => l.Url).ToList(),
+                    HideAction = HideMirror,
+                };
                 Mirrors.Add(option);
                 options.Add((FileHosts.Priority(g.Representative), options.Count, option));
             }
@@ -478,6 +496,47 @@ public sealed partial class GameDetailViewModel : PageViewModel, IDisposable
         // A page whose only options need a browser (itch.io, MEGA): that option is the choice, so the button opens it.
         var realOptions = Mirrors.Skip(1).ToList();
         SelectMirror(realOptions.Count > 0 && realOptions.All(m => m.BrowserOnly) ? realOptions[0] : AutomaticMirror);
+    }
+
+    /// <summary>Download options hidden on this page (they didn't work): "Show 2 hidden options".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHiddenOptions), nameof(HiddenOptionsText))]
+    private int _hiddenOptionCount;
+
+    public bool HasHiddenOptions => HiddenOptionCount > 0;
+    public string HiddenOptionsText => HiddenOptionCount == 1 ? "Show 1 hidden download option" : $"Show {HiddenOptionCount} hidden download options";
+
+    /// <summary>Hides a download option that doesn't work: gone from this list, and never used by Automatic.</summary>
+    private void HideMirror(MirrorOptionViewModel option)
+    {
+        var settings = _repository.GetSettings();
+        foreach (var url in option.Urls)
+            if (!settings.HiddenDownloadLinks.Contains(url, StringComparer.OrdinalIgnoreCase)) settings.HiddenDownloadLinks.Add(url);
+        if (settings.HiddenDownloadLinks.Count > 5000) settings.HiddenDownloadLinks.RemoveRange(0, settings.HiddenDownloadLinks.Count - 5000);
+        _repository.SaveSettings(settings);
+        RebuildMirrors();
+    }
+
+    /// <summary>Brings back this game's hidden download options.</summary>
+    [RelayCommand]
+    private void ShowHiddenOptions()
+    {
+        var settings = _repository.GetSettings();
+        var mine = _game.DownloadLinks.Select(l => l.Url).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        settings.HiddenDownloadLinks.RemoveAll(mine.Contains);
+        _repository.SaveSettings(settings);
+        RebuildMirrors();
+    }
+
+    private void RebuildMirrors()
+    {
+        Mirrors.Clear();
+        MirrorSections.Clear();
+        TopMirrors.Clear();
+        BuildMirrors();
+        OnPropertyChanged(nameof(HasMoreOptions));
+        OnPropertyChanged(nameof(HasMultipleOptions));
+        RefreshStatus();
     }
 
     private void SelectMirror(MirrorOptionViewModel option)
@@ -545,7 +604,7 @@ public sealed partial class GameDetailViewModel : PageViewModel, IDisposable
     [RelayCommand]
     private void PlayTrailer()
     {
-        if (SelectedMedia?.VideoUrl is { } url) RunSafe(() => _trailers.Play(url, _game.StorePageUrl, _game.Title));
+        if (SelectedMedia?.VideoUrl is { } url) RunSafe(() => _trailers.PlayTrailer(url, _game.StorePageUrl, _game.Title));
     }
 
     [RelayCommand]

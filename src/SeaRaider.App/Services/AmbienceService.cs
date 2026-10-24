@@ -26,9 +26,11 @@ public sealed class AmbienceService : IDisposable
     private readonly Timer _fader;
     private AppSettings _settings;
 
-    private Loop? _loop;
+    private short[]? _samples;
+    private Thread? _player;
+    private volatile bool _stopping;
     private AppSkin? _loopSkin;
-    private bool _started, _windowActive = true, _playerOpen, _paused = true;
+    private bool _started, _windowActive = true, _playerOpen;
     private double _level, _target;
 
     public AmbienceService(ILibraryRepository repository, SkinService skins, TrailerPlayerService player)
@@ -89,37 +91,79 @@ public sealed class AmbienceService : IDisposable
     {
         lock (_lock)
         {
-            var loop = _loop;
-            if (loop is null)
-            {
-                _fader.Change(Timeout.Infinite, Timeout.Infinite); // not made yet (or no audio device): nothing to fade
-                return;
-            }
             const double step = 0.016;
             if (Math.Abs(_level - _target) <= step) _level = _target;
             else _level += Math.Sign(_target - _level) * step;
-
-            if (_level > 0 && _paused)
-            {
-                loop.Resume();
-                _paused = false;
-            }
-            loop.SetVolume(_level);
-            if (_level <= 0 && !_paused)
-            {
-                loop.Pause();
-                _paused = true;
-            }
             if (_level == _target) _fader.Change(Timeout.Infinite, Timeout.Infinite);
         }
     }
 
-    /// <summary>The loop for the skin on screen (made once per skin; the Hallow's Eve one is its own).</summary>
+    /// <summary>
+    /// Plays the loop, scaling its samples by the fade level itself. (Never waveOutSetVolume: on Windows that sets SeaRaider's own
+    /// volume in the volume mixer, so fading the music out under the player turned the whole app — the video's sound too — to 0.)
+    /// Releases the sound device while silent.
+    /// </summary>
+    private void PlayLoop()
+    {
+        PcmStreamOut? output = null;
+        var position = 0;
+        try
+        {
+            while (!_stopping)
+            {
+                double level;
+                short[]? samples;
+                lock (_lock)
+                {
+                    level = _level;
+                    samples = _samples;
+                }
+                if (level <= 0 || samples is null)
+                {
+                    output?.Dispose();
+                    output = null;
+                    Thread.Sleep(60);
+                    continue;
+                }
+                output ??= PcmStreamOut.Open(SampleRate);
+                if (output is null)
+                {
+                    Thread.Sleep(1000); // no sound device right now
+                    continue;
+                }
+                output.Reclaim();
+                if (output.QueuedFrames < SampleRate / 6)
+                {
+                    var frames = SampleRate / 20; // 50 ms
+                    var block = new float[frames * 2];
+                    var gain = (float)level / short.MaxValue;
+                    for (var i = 0; i < frames; i++)
+                    {
+                        var v = samples[position] * gain;
+                        block[2 * i] = v;
+                        block[2 * i + 1] = v;
+                        if (++position >= samples.Length) position = 0;
+                    }
+                    output.Write(block, frames);
+                }
+                Thread.Sleep(20);
+            }
+        }
+        catch (Exception ex)
+        {
+            Core.ErrorLog.Write(ex, "ambience playback");
+        }
+        finally
+        {
+            output?.Dispose();
+        }
+    }
+
     private void EnsureLoop()
     {
         if (!OperatingSystem.IsWindows()) return;
         var skin = _skins.Current == AppSkin.Halloween ? AppSkin.Halloween : AppSkin.NextGeneration;
-        if (_loopSkin == skin && _loop is not null) return;
+        if (_loopSkin == skin && _samples is not null) return;
         short[] samples;
         try
         {
@@ -132,11 +176,20 @@ public sealed class AmbienceService : IDisposable
         }
         lock (_lock)
         {
-            _loop?.Dispose();
-            _loop = Loop.Open(samples, SampleRate);
+            _samples = samples;
             _loopSkin = skin;
-            _paused = true;
             _level = 0; // fades in again
+        }
+        lock (_lock)
+        {
+            if (_player is null)
+            {
+                // Earlier versions faded the music with the app's own mixer volume and could leave SeaRaider at 0 in Windows'
+                // volume mixer: put it back to full once (the music's own level is in its samples now).
+                PcmStreamOut.ResetAppVolume(SampleRate);
+                _player = new Thread(PlayLoop) { IsBackground = true, Name = "Background sound" };
+                _player.Start();
+            }
         }
         Retarget();
     }
@@ -144,11 +197,8 @@ public sealed class AmbienceService : IDisposable
     public void Dispose()
     {
         _fader.Dispose();
-        lock (_lock)
-        {
-            _loop?.Dispose();
-            _loop = null;
-        }
+        _stopping = true;
+        _player?.Join(500);
     }
 
     // ---- the sound ------------------------------------------------------------------------------------------
@@ -245,95 +295,5 @@ public sealed class AmbienceService : IDisposable
         var samples = new short[n];
         for (var i = 0; i < n; i++) samples[i] = (short)(buffer[i] / peak * 0.5 * short.MaxValue);
         return samples;
-    }
-
-    // ---- playback: one looping winmm wave buffer ------------------------------------------------------------
-
-    private sealed class Loop : IDisposable
-    {
-        private const uint WaveMapper = 0xFFFFFFFF;
-        private const uint WhdrBeginLoop = 0x4, WhdrEndLoop = 0x8;
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct WaveFormatEx
-        {
-            public ushort FormatTag, Channels;
-            public uint SamplesPerSec, AvgBytesPerSec;
-            public ushort BlockAlign, BitsPerSample, Size;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct WaveHeader
-        {
-            public IntPtr Data;
-            public uint BufferLength, BytesRecorded;
-            public IntPtr User;
-            public uint Flags, Loops;
-            public IntPtr Next, Reserved;
-        }
-
-        [DllImport("winmm.dll")] private static extern int waveOutOpen(out IntPtr handle, uint device, ref WaveFormatEx format, IntPtr callback, IntPtr instance, uint flags);
-        [DllImport("winmm.dll")] private static extern int waveOutPrepareHeader(IntPtr handle, IntPtr header, uint size);
-        [DllImport("winmm.dll")] private static extern int waveOutWrite(IntPtr handle, IntPtr header, uint size);
-        [DllImport("winmm.dll")] private static extern int waveOutUnprepareHeader(IntPtr handle, IntPtr header, uint size);
-        [DllImport("winmm.dll")] private static extern int waveOutReset(IntPtr handle);
-        [DllImport("winmm.dll")] private static extern int waveOutClose(IntPtr handle);
-        [DllImport("winmm.dll")] private static extern int waveOutPause(IntPtr handle);
-        [DllImport("winmm.dll")] private static extern int waveOutRestart(IntPtr handle);
-        [DllImport("winmm.dll")] private static extern int waveOutSetVolume(IntPtr handle, uint volume);
-
-        private IntPtr _handle, _data, _header;
-        private uint _headerSize;
-
-        public static Loop? Open(short[] samples, int sampleRate)
-        {
-            var format = new WaveFormatEx
-            {
-                FormatTag = 1, Channels = 1, SamplesPerSec = (uint)sampleRate, BitsPerSample = 16,
-                BlockAlign = 2, AvgBytesPerSec = (uint)sampleRate * 2,
-            };
-            if (waveOutOpen(out var handle, WaveMapper, ref format, IntPtr.Zero, IntPtr.Zero, 0) != 0) return null; // no audio device
-            var loop = new Loop { _handle = handle };
-            waveOutSetVolume(handle, 0);
-            waveOutPause(handle); // starts silent and paused; the fader brings it in
-
-            var bytes = samples.Length * 2;
-            loop._data = Marshal.AllocHGlobal(bytes);
-            Marshal.Copy(samples, 0, loop._data, samples.Length);
-            loop._headerSize = (uint)Marshal.SizeOf<WaveHeader>();
-            loop._header = Marshal.AllocHGlobal((int)loop._headerSize);
-            Marshal.StructureToPtr(new WaveHeader
-            {
-                Data = loop._data, BufferLength = (uint)bytes, Flags = WhdrBeginLoop | WhdrEndLoop, Loops = int.MaxValue,
-            }, loop._header, false);
-            if (waveOutPrepareHeader(handle, loop._header, loop._headerSize) != 0)
-            {
-                loop.Dispose();
-                return null;
-            }
-            waveOutWrite(handle, loop._header, loop._headerSize);
-            return loop;
-        }
-
-        public void SetVolume(double level)
-        {
-            var v = (uint)(Math.Clamp(level, 0, 1) * 0xFFFF);
-            waveOutSetVolume(_handle, v | (v << 16));
-        }
-
-        public void Pause() => waveOutPause(_handle);
-        public void Resume() => waveOutRestart(_handle);
-
-        public void Dispose()
-        {
-            if (_handle == IntPtr.Zero) return;
-            waveOutReset(_handle);
-            if (_header != IntPtr.Zero) waveOutUnprepareHeader(_handle, _header, _headerSize);
-            waveOutClose(_handle);
-            _handle = IntPtr.Zero;
-            if (_header != IntPtr.Zero) Marshal.FreeHGlobal(_header);
-            if (_data != IntPtr.Zero) Marshal.FreeHGlobal(_data);
-            _header = _data = IntPtr.Zero;
-        }
     }
 }

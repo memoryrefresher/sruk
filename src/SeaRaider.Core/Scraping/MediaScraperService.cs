@@ -16,7 +16,15 @@ namespace SeaRaider.Core.Scraping;
 /// <param name="TrailerThumbnails">Thumbnail per trailer (same order; may contain nulls).</param>
 /// <param name="StorePageUrl">The game's store page (where trailers can always be watched).</param>
 public sealed record GameMedia(string Provider, IReadOnlyList<string> Screenshots, IReadOnlyList<string> Trailers,
-    IReadOnlyList<string?> TrailerThumbnails, string? StorePageUrl = null);
+    IReadOnlyList<string?> TrailerThumbnails, string? StorePageUrl = null)
+{
+    /// <summary>The store's own details of the game (Steam), when the provider has them.</summary>
+    public StoreInfo? Info { get; init; }
+}
+
+/// <summary>A store's clean details of a game: its proper name, makers, genres, release date, description and picture.</summary>
+public sealed record StoreInfo(string Name, string? Developer, string? Publisher, IReadOnlyList<string> Genres, string? ReleaseDate,
+    string? ShortDescription, string? Description, string? HeaderImage);
 
 /// <summary>A public games catalogue that can supply media by title.</summary>
 public interface IGameMediaProvider
@@ -161,6 +169,52 @@ public sealed partial class MediaScraperService(IEnumerable<IGameMediaProvider> 
         return changed;
     }
 
+    [GeneratedRegex(@"download|torrent|magnet|mirror|crack|password|repack|installation|install\s+notes|setup\.exe|direct\s+link|" +
+                    @"\.rar|\.zip|\.7z|google\s+drive|mediafire|mega\.nz|pixeldrain|gofile|uploaded\s+by|how\s+to\s+install",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex MessyTextRegex();
+
+    /// <summary>
+    /// "Pull from Steam over messy information" (Settings › Store media): when Steam has the game, its proper name, developer,
+    /// publisher, genres, release date and cover picture replace what the site's page gave, and its description replaces the
+    /// page's when that's short or full of download instructions. Returns true when anything changed.
+    /// </summary>
+    public async Task<bool> ApplyStoreInfoAsync(GameMetadata game, CancellationToken cancellationToken)
+    {
+        if (providers.OfType<SteamStoreMediaProvider>().FirstOrDefault(p => p.IsAvailable) is not { } steam) return false;
+        GameMedia? media;
+        try
+        {
+            media = await steam.FindAsync(game.Title, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogInformation(ex, "Steam details for {Title} unavailable", game.Title);
+            return false;
+        }
+        if (media?.Info is not { } info) return false;
+
+        if (info.Name.Length > 1) game.Title = info.Name;
+        if (info.Developer is { } developer) game.Developer = developer;
+        if (info.Publisher is { } publisher) game.Publisher = publisher;
+        if (info.Genres.Count > 0) game.Genres = info.Genres.ToList();
+        if (ReleaseDates.ParseSteam(info.ReleaseDate) is { } date)
+        {
+            game.ReleaseDate = info.ReleaseDate;
+            game.ReleaseDateUtc = date;
+            game.ReleaseDateFromSteam = true;
+        }
+        if (info.Description is { Length: > 80 } about &&
+            (game.Description.Length < 300 || MessyTextRegex().Matches(game.Description).Count >= 2))
+            game.Description = about;
+        if (info.ShortDescription is { Length: > 0 } teaser &&
+            (game.ShortDescription.Length < 40 || MessyTextRegex().IsMatch(game.ShortDescription)))
+            game.ShortDescription = teaser.Length > 220 ? teaser[..220].TrimEnd() + "…" : teaser;
+        if (info.HeaderImage is { Length: > 0 } header) game.CoverImageUrl = header;
+        game.StorePageUrl ??= media.StorePageUrl;
+        return true;
+    }
+
     /// <summary>Steam's silent 6–8 second store previews ("microtrailer"): never shown as a trailer.</summary>
     public static bool IsMicroTrailer(string url) => url.Contains("microtrailer", StringComparison.OrdinalIgnoreCase);
 
@@ -251,8 +305,39 @@ public sealed class SteamStoreMediaProvider(IHttpClientFactory httpClientFactory
             }
         }
 
+        var info = new StoreInfo(
+            Str(data, "name") ?? title,
+            Join(data, "developers"),
+            Join(data, "publishers"),
+            data.TryGetProperty("genres", out var genres) && genres.ValueKind == JsonValueKind.Array
+                ? genres.EnumerateArray().Select(g => Str(g, "description")).OfType<string>().Take(4).ToList()
+                : [],
+            data.TryGetProperty("release_date", out var released) ? Str(released, "date") : null,
+            Text(Str(data, "short_description")),
+            Text(Str(data, "about_the_game")),
+            Str(data, "header_image"));
+
         return _cache[title] = new GameMedia("Steam", screenshots.Take(12).ToList(), trailers, thumbs,
-            $"https://store.steampowered.com/app/{appId}/");
+            $"https://store.steampowered.com/app/{appId}/") { Info = info };
+
+        static string? Join(JsonElement e, string name) =>
+            e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Array
+                ? string.Join(", ", v.EnumerateArray().Select(x => x.GetString()).OfType<string>().Take(3)) is { Length: > 0 } joined ? joined : null
+                : null;
+
+        // Steam's HTML description as plain paragraphs.
+        static string? Text(string? html)
+        {
+            if (string.IsNullOrWhiteSpace(html)) return null;
+            var text = Regex.Replace(html, @"<\s*(br|/p|/h[1-6]|/li|/div)\s*/?>", "\n", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"<li[^>]*>", "• ", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, "<[^>]+>", string.Empty);
+            text = System.Net.WebUtility.HtmlDecode(text);
+            text = Regex.Replace(text, @"[ \t]+", " ");
+            text = Regex.Replace(text, @"\s*\n\s*", "\n");
+            text = Regex.Replace(text, @"\n{2,}", "\n\n").Trim();
+            return text.Length == 0 ? null : text;
+        }
 
         static string? Rendition(JsonElement movie, string format, string quality) =>
             movie.TryGetProperty(format, out var f) && f.ValueKind == JsonValueKind.Object && f.TryGetProperty(quality, out var q) ? q.GetString() : null;
@@ -307,6 +392,68 @@ public sealed class IgdbMediaProvider(IHttpClientFactory httpClientFactory, ILib
         }
         return null;
 
+        static IEnumerable<string> Ids(JsonElement game, string list, string field) =>
+            game.TryGetProperty(list, out var items) && items.ValueKind == JsonValueKind.Array
+                ? items.EnumerateArray().Select(i => i.TryGetProperty(field, out var v) ? v.GetString() : null).OfType<string>()
+                : Enumerable.Empty<string>();
+    }
+
+    /// <summary>IGDB's entry for a console game: description, makers, genres, release date and its pictures in high resolution.</summary>
+    public sealed record IgdbGame(string Name, string? Summary, string? Developer, string? Publisher, IReadOnlyList<string> Genres,
+        DateTime? Released, string? Cover, IReadOnlyList<string> Screenshots, IReadOnlyList<string> Videos, string? Url);
+
+    /// <summary>The game on IGDB, for this console when IGDB lists it there (keys in Settings); null without a match.</summary>
+    public async Task<IgdbGame?> FindRomAsync(string title, Emulation.GameSystem system, CancellationToken cancellationToken)
+    {
+        if (!IsAvailable) return null;
+        var settings = repository.GetSettings();
+        var token = await GetTokenAsync(settings.IgdbClientId!, settings.IgdbClientSecret!, cancellationToken).ConfigureAwait(false);
+        var client = httpClientFactory.CreateClient(HttpClientNames.Metadata);
+
+        var searchText = TitleNormalizer.NormalizeForSearch(title).Replace("\"", string.Empty);
+        var query = $"search \"{searchText}\"; fields name,summary,first_release_date,url,genres.name,platforms.name,platforms.abbreviation," +
+                    "involved_companies.developer,involved_companies.publisher,involved_companies.company.name,cover.image_id," +
+                    "screenshots.image_id,artworks.image_id,videos.video_id; limit 15;";
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.igdb.com/v4/games") { Content = new StringContent(query) };
+        request.Headers.TryAddWithoutValidation("Client-ID", settings.IgdbClientId);
+        request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {token}");
+        using var response = await client.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        using var json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        JsonElement? chosen = null;
+        foreach (var game in json.RootElement.EnumerateArray())
+        {
+            var name = game.TryGetProperty("name", out var n) ? n.GetString() : null;
+            if (name is null || !MediaScraperService.IsSameGame(title, name)) continue;
+            var onSystem = game.TryGetProperty("platforms", out var platforms) && platforms.ValueKind == JsonValueKind.Array &&
+                           platforms.EnumerateArray().Any(p =>
+                               Emulation.GameSystems.FromText($"{Str(p, "name")} {Str(p, "abbreviation")}")?.Id == system.Id);
+            if (onSystem) { chosen = game; break; }
+            chosen ??= game; // the same name on another console: only if nothing better
+        }
+        if (chosen is not { } g) return null;
+
+        var companies = g.TryGetProperty("involved_companies", out var ic) && ic.ValueKind == JsonValueKind.Array ? ic.EnumerateArray().ToList() : new List<JsonElement>();
+        string? Company(string role) => string.Join(", ", companies
+            .Where(c => c.TryGetProperty(role, out var r) && r.ValueKind == JsonValueKind.True)
+            .Select(c => c.TryGetProperty("company", out var co) ? Str(co, "name") : null).OfType<string>().Take(2)) is { Length: > 0 } x ? x : null;
+        var genres = g.TryGetProperty("genres", out var gs) && gs.ValueKind == JsonValueKind.Array
+            ? gs.EnumerateArray().Select(x => Str(x, "name")).OfType<string>().Take(4).ToList()
+            : new List<string>();
+        DateTime? released = g.TryGetProperty("first_release_date", out var r) && r.TryGetInt64(out var unix)
+            ? DateTimeOffset.FromUnixTimeSeconds(unix).UtcDateTime : null;
+        var cover = g.TryGetProperty("cover", out var c) && Str(c, "image_id") is { } coverId
+            ? $"https://images.igdb.com/igdb/image/upload/t_cover_big_2x/{coverId}.jpg" : null;
+        var shots = Ids(g, "screenshots", "image_id").Concat(Ids(g, "artworks", "image_id"))
+            .Select(id => $"https://images.igdb.com/igdb/image/upload/t_1080p/{id}.jpg").Take(12).ToList();
+        var videos = Ids(g, "videos", "video_id").Take(3).Select(id => $"https://www.youtube.com/watch?v={id}").ToList();
+        return new IgdbGame(Str(g, "name") ?? title, Str(g, "summary"), Company("developer"), Company("publisher"), genres, released,
+            cover, shots, videos, Str(g, "url"));
+
+        static string? Str(JsonElement e, string name) =>
+            e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
         static IEnumerable<string> Ids(JsonElement game, string list, string field) =>
             game.TryGetProperty(list, out var items) && items.ValueKind == JsonValueKind.Array
                 ? items.EnumerateArray().Select(i => i.TryGetProperty(field, out var v) ? v.GetString() : null).OfType<string>()

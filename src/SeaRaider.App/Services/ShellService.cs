@@ -70,6 +70,19 @@ public sealed class ShellService
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
+    /// <summary>Picks a .torrent file (Sources › a backups torrent).</summary>
+    public async Task<string?> PickTorrentAsync()
+    {
+        if (GetStorage() is not { } storage) return null;
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Choose the torrent of your backups",
+            AllowMultiple = false,
+            FileTypeFilter = [new FilePickerFileType("Torrent files") { Patterns = ["*.torrent"] }],
+        });
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+    }
+
     /// <summary>Picks an emulator program (Settings › Emulators).</summary>
     public async Task<string?> PickEmulatorAsync(string systemName)
     {

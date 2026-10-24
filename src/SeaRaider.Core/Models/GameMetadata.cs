@@ -54,6 +54,9 @@ public sealed class GameMetadata
     /// <summary>A console game (ROM) was filled in from the web with these rules (<c>RomInfoService.CurrentVersion</c>); 0 = not yet.</summary>
     public int RomInfoVersion { get; set; }
 
+    /// <summary>Not in English (a ROM whose every copy is Japan, Germany … only): hidden by Settings › Store's English filter.</summary>
+    public bool NonEnglish { get; set; }
+
     /// <summary>The game's Steam store page, when the media came from Steam (trailer fallback).</summary>
     public string? StorePageUrl { get; set; }
 
@@ -61,7 +64,7 @@ public sealed class GameMetadata
     /// 2: full-length Steam trailers (HLS) in trailer order. 3: Steam trailers for every game (not only pages without
     /// screenshots), and no YouTube links picked up from a site's sidebar.
     /// </summary>
-    public const int CurrentMediaVersion = 3;
+    public const int CurrentMediaVersion = 4; // 4: Steam's details over messy pages
 
     /// <summary>Media is checked with the current rules (older records are looked at again once).</summary>
     [LiteDB.BsonIgnore]
@@ -244,6 +247,12 @@ public sealed class DownloadLink
     /// listed with the torrents, opened in the download browser to collect the torrent, then downloaded by the torrent client.
     /// </summary>
     public bool LeadsToTorrent { get; set; }
+
+    /// <summary>
+    /// Only this folder (or file) of the torrent is downloaded ("Backups/Halo 3"): a backups torrent's one game. Path inside the
+    /// torrent, with its top folder; null = the whole torrent.
+    /// </summary>
+    public string? TorrentFolder { get; set; }
 
     public override string ToString() => $"{Kind}: {Label} ({Url})";
 }

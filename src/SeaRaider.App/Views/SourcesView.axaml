@@ -34,11 +34,16 @@
       <Border Classes="panel" Padding="22">
         <StackPanel Spacing="14">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBox Text="{Binding NewUrl}" Watermark="https://example.com" FontSize="15" />
+            <TextBox Text="{Binding NewUrl}" Watermark="https://example.com   or a backups torrent: magnet:?…  /  …/backups.torrent" FontSize="15" />
             <Border Grid.Column="1" Classes="glow" Margin="12,0,0,0">
               <Button Classes="primary" Content="Add source" Command="{Binding AddSourceCommand}" IsDefault="True" />
             </Border>
           </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,-6,0,0">
+            <Button Classes="link" Content="Add a backups torrent from this PC…" Command="{Binding AddTorrentFileCommand}" />
+            <TextBlock Classes="muted small" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="560"
+                       Text="Each game folder in the torrent becomes a store game; its download takes only that folder." />
+          </StackPanel>
 
           <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto">
             <TextBlock Classes="small" VerticalAlignment="Center" Text="Search with" />
@@ -117,6 +122,90 @@
                     <TextBlock Classes="muted small" Text="{Binding Url}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Classes="small" Text="{Binding StatusText}" TextWrapping="Wrap"
                                Classes.coral="{Binding !IsHealthy}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsTorrent}" Margin="0,4,0,0">
+                      <TextBlock Classes="small" VerticalAlignment="Center" Text="Console" />
+                      <ComboBox MinWidth="220" ItemsSource="{x:Static vm:SourceItemViewModel.ConsoleChoices}" SelectedItem="{Binding SelectedConsole}"
+                                ToolTip.Tip="Which console this torrent's games are for (when its folder names don't say)">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:SystemChoice">
+                            <TextBlock Text="{Binding Label}" />
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                    </StackPanel>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsCrawling}">
+                      <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsWebGame}">
+                      <Button Classes="quiet" Content="Build offline index" ToolTip.Tip="Crawl the whole site so every game is searchable offline"
+                              Command="{Binding RefreshCommand}" />
+                      <Button Classes="quiet" Content="Rebuild" ToolTip.Tip="Re-read every page, including ones already indexed"
+                              Command="{Binding FullRescanCommand}" />
+                      </StackPanel>
+                    </StackPanel>
+                    <CheckBox IsChecked="{Binding IsWebGame}" Content="Browser game" VerticalAlignment="Center"
+                              ToolTip.Tip="The address is a game you play in the browser: one store entry, played full screen in SeaRaider" />
+                    <Button Classes="quiet" Content="Mirror labels" ToolTip.Tip="Name the mirrors next to this site's &quot;Click Here&quot; buttons"
+                            Command="{Binding EditLabelsCommand}" />
+                    <Button Classes="quiet" Content="Stop" IsVisible="{Binding IsCrawling}" Command="{Binding StopCommand}" />
+                    <Button Classes="danger" Content="Remove" Command="{Binding RemoveCommand}" />
+                  </StackPanel>
+                </Grid>
+
+                <!-- Mirror labels: the names next to the site's "Click Here" buttons -->
+                <StackPanel Spacing="6" IsVisible="{Binding IsEditingLabels}">
+                  <TextBlock Classes="muted small" TextWrapping="Wrap"
+                             Text="Type the names this site prints next to its &quot;Click Here&quot; buttons, separated by commas. Each button becomes its own mirror under that name; names with torrent or magnet are downloaded as torrents. Leave it empty to use whatever text is next to each button." />
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Text="{Binding MirrorLabels}" Watermark="Torrent, Gofile, Pixeldrain, 1fichier, Mega, Direct" />
+                    <Button Grid.Column="1" Classes="primary" Margin="10,0,0,0" Content="Save" Command="{Binding SaveLabelsCommand}" />
+                  </Grid>
+                </StackPanel>
+
+                <!-- Live crawl progress -->
+                <StackPanel Spacing="4" IsVisible="{Binding IsCrawling}">
+                  <ProgressBar Value="{Binding ProgressPercent}" IsIndeterminate="{Binding IsProgressIndeterminate}" />
+                  <TextBlock Classes="small" Text="{Binding ProgressText}" />
+                  <TextBlock Classes="muted small" Text="{Binding ProgressDetail}" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!-- Console games (ROMs): their own section -->
+      <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasEmulationSources}">
+        <TextBlock Classes="h2" Text="Emulation" />
+        <TextBlock Classes="muted small" TextWrapping="Wrap"
+                   Text="Console game sources: ROM sites and your consoles' backups torrents. Their games show in the store with Settings › Emulators › Show console games." />
+      </StackPanel>
+      <ItemsControl ItemsSource="{Binding EmulationSources}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SourceItemViewModel">
+            <Border Classes="panel" Padding="18,14" Margin="0,0,0,10">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto">
+                  <StackPanel Spacing="3">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <ToggleSwitch IsChecked="{Binding IsEnabled}" OnContent="" OffContent="" VerticalAlignment="Center"
+                                    ToolTip.Tip="On: searched and shown in the store. Off: left out until you switch it on again." />
+                      <TextBlock FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" Text="{Binding Name}" />
+                    </StackPanel>
+                    <TextBlock Classes="muted small" Text="{Binding Url}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="small" Text="{Binding StatusText}" TextWrapping="Wrap"
+                               Classes.coral="{Binding !IsHealthy}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsTorrent}" Margin="0,4,0,0">
+                      <TextBlock Classes="small" VerticalAlignment="Center" Text="Console" />
+                      <ComboBox MinWidth="220" ItemsSource="{x:Static vm:SourceItemViewModel.ConsoleChoices}" SelectedItem="{Binding SelectedConsole}"
+                                ToolTip.Tip="Which console this torrent's games are for (when its folder names don't say)">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:SystemChoice">
+                            <TextBlock Text="{Binding Label}" />
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                    </StackPanel>
                   </StackPanel>
                   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsCrawling}">

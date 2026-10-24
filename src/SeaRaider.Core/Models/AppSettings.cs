@@ -220,6 +220,22 @@ public sealed class AppSettings
     /// <summary>The switch to Hallow's Eve has been made once (on the first start of this version); later choices stay.</summary>
     public bool HalloweenSkinGiven { get; set; }
 
+    /// <summary>When Steam has a game, its name, makers, genres, release date, cover and (for messy pages) description are used
+    /// instead of the site's.</summary>
+    public bool PreferSteamInfo { get; set; } = true;
+
+    /// <summary>The store hides games that aren't in English (ROMs only released in Japan, titles in another script).</summary>
+    public bool HideNonEnglish { get; set; } = true;
+
+    /// <summary>The System the store opens on ("pc" = PC games; null = all systems; or a console's id).</summary>
+    public string? StoreStartSystem { get; set; } = "pc";
+
+    /// <summary>Console buttons hidden above the store (their games stay out of "All" too); shown again from "Hidden".</summary>
+    public List<string> HiddenSystemChips { get; set; } = [];
+
+    /// <summary>Download options hidden on a game's page because they don't work (their addresses).</summary>
+    public List<string> HiddenDownloadLinks { get; set; } = [];
+
     /// <summary>Untick the "Limit installer to 2 GB of RAM usage" (low RAM) option on the first page of repack setups.</summary>
     public bool UncheckSetupLowRam { get; set; } = true;
 
