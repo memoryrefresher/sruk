@@ -1,0 +1,195 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:views="using:SeaRaider.App.Views"
+             xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="SeaRaider.App.Views.IptvView"
+             x:DataType="vm:IptvViewModel">
+
+  <UserControl.Resources>
+    <!-- The "2027 TV" look: deep glass panels with a cyan-to-violet edge light -->
+    <LinearGradientBrush x:Key="TvGlassBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Color="#1A163044" Offset="0" />
+      <GradientStop Color="#33102436" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="TvEdgeBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Color="#803FE0C5" Offset="0" />
+      <GradientStop Color="#807A5CFF" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="TvTileBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Color="#16304A" Offset="0" />
+      <GradientStop Color="#0B1B2B" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="TvSportsTileBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Color="#1B3A4A" Offset="0" />
+      <GradientStop Color="#2A1B4A" Offset="1" />
+    </LinearGradientBrush>
+  </UserControl.Resources>
+
+  <StackPanel Spacing="18">
+
+    <Border Classes="error-banner" IsVisible="{Binding HasError}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+        <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+      </Grid>
+    </Border>
+
+    <!-- Link your playlist -->
+    <Border Background="{StaticResource TvGlassBrush}" BorderBrush="{StaticResource TvEdgeBrush}" BorderThickness="1" CornerRadius="16"
+            Padding="26" IsVisible="{Binding ShowSetup}">
+      <StackPanel Spacing="12" MaxWidth="760" HorizontalAlignment="Left">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Ellipse Width="10" Height="10" Fill="{DynamicResource CoralBrush}" VerticalAlignment="Center" />
+          <TextBlock Classes="h2" Text="Live TV" />
+        </StackPanel>
+        <TextBlock Classes="body muted" TextWrapping="Wrap"
+                   Text="Paste your IPTV playlist link (the M3U link from your provider, or the path of an .m3u file on this computer). Every channel shows up here, sports first, and plays in SeaRaider's player, so you can run several games side by side." />
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBox Text="{Binding PlaylistInput}" FontSize="15" Watermark="https://your-provider.example/get.php?username=…&amp;password=…&amp;type=m3u_plus"
+                   KeyDown="OnLinkKeyDown" />
+          <Border Grid.Column="1" Classes="glow" Margin="12,0,0,0">
+            <Button Classes="primary" Content="{Binding ConnectText}" Command="{Binding ConnectCommand}" IsEnabled="{Binding !IsBusy}" />
+          </Border>
+        </Grid>
+        <ProgressBar Classes="thin" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasPlaylist}">
+          <Button Classes="quiet" Content="Cancel" Command="{Binding CancelChangeLinkCommand}" />
+          <Button Classes="quiet" Content="Remove this playlist" Command="{Binding RemoveCommand}" />
+        </StackPanel>
+        <TextBlock Classes="muted small" TextWrapping="Wrap"
+                   Text="The link is saved on this computer only. Only your provider's own streams are played; SeaRaider doesn't supply any channels." />
+      </StackPanel>
+    </Border>
+
+    <!-- The guide -->
+    <StackPanel Spacing="16" IsVisible="{Binding ShowGuide}">
+
+      <!-- Now on: the control deck -->
+      <Border Background="{StaticResource TvGlassBrush}" BorderBrush="{StaticResource TvEdgeBrush}" BorderThickness="1" CornerRadius="16" Padding="18">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <Border Width="96" Height="64" CornerRadius="10" Background="{StaticResource TvTileBrush}" ClipToBounds="True">
+            <Panel>
+              <TextBlock Text="TV" FontSize="22" FontWeight="Black" Foreground="{DynamicResource LineBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <Image Stretch="Uniform" Margin="8" IsVisible="{Binding NowPlayingLogo, Converter={x:Static ObjectConverters.IsNotNull}}"
+                     img:ImageLoader.Source="{Binding NowPlayingLogo}" />
+            </Panel>
+          </Border>
+          <StackPanel Grid.Column="1" Margin="16,0" VerticalAlignment="Center" Spacing="3">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Classes="live-badge" IsVisible="{Binding HasNowPlaying}">
+                <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="6" Height="6" Fill="White" VerticalAlignment="Center" /><TextBlock Text="LIVE" /></StackPanel>
+              </Border>
+              <TextBlock Classes="muted small" Text="{Binding NowPlayingDetail}" VerticalAlignment="Center" />
+            </StackPanel>
+            <TextBlock FontSize="22" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasNowPlaying}" Text="{Binding NowPlayingName}" />
+            <TextBlock FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource MistBrush}" IsVisible="{Binding !HasNowPlaying}"
+                       Text="Pick a channel, or dial a number" />
+            <TextBlock Classes="muted small" Text="{Binding StatusText}" />
+          </StackPanel>
+
+          <!-- Remote -->
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Border Background="#33000000" BorderBrush="{StaticResource TvEdgeBrush}" BorderThickness="1" CornerRadius="10" MinWidth="104" Padding="10,6"
+                    ToolTip.Tip="Type a channel number (anywhere on this page) and press Enter">
+              <Panel>
+                <TextBlock Text="{Binding KeypadText}" FontSize="26" FontWeight="Bold" FontFamily="Consolas, monospace" Foreground="{DynamicResource BiolumeBrightBrush}"
+                           HorizontalAlignment="Center" IsVisible="{Binding HasKeypadText}" />
+                <TextBlock Text="CH #" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource MistBrush}" HorizontalAlignment="Center"
+                           IsVisible="{Binding !HasKeypadText}" />
+              </Panel>
+            </Border>
+            <Button Classes="quiet" Content="CH ▲" Command="{Binding ChannelUpCommand}" ToolTip.Tip="Next channel (Page Up)" />
+            <Button Classes="quiet" Content="CH ▼" Command="{Binding ChannelDownCommand}" ToolTip.Tip="Previous channel (Page Down)" />
+            <Button Classes="quiet" Content="⟲ Last" Command="{Binding LastChannelCommand}" ToolTip.Tip="Back to the last channel" />
+            <Button Classes="quiet" Content="🎲" Command="{Binding RandomChannelCommand}" ToolTip.Tip="Surprise me" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Search, refresh -->
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+        <TextBox Classes="search" Text="{Binding SearchText}" Watermark="Search channels, teams, leagues" />
+        <ProgressBar Grid.Column="1" Classes="thin" Width="70" Margin="12,0,0,0" IsIndeterminate="True" IsVisible="{Binding IsBusy}" />
+        <Button Grid.Column="2" Classes="quiet" Margin="10,0,0,0" Content="Refresh" Command="{Binding RefreshCommand}" ToolTip.Tip="Read the playlist link again" />
+        <Button Grid.Column="3" Classes="quiet" Margin="6,0,0,0" Content="Change link" Command="{Binding ChangeLinkCommand}" />
+      </Grid>
+
+      <!-- Categories -->
+      <ItemsControl ItemsSource="{Binding Chips}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:IptvChipViewModel">
+            <Button Classes="source-tab" Classes.selected="{Binding IsSelected}" Command="{Binding SelectCommand}" Margin="0,0,8,8">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="source-name" Text="{Binding Name}" />
+                <TextBlock Classes="muted small" Text="{Binding CountText}" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Classes="muted" IsVisible="{Binding NoResults}" TextWrapping="Wrap" Text="No channel matches that. Try fewer words, or pick All." />
+      <TextBlock Classes="muted small" IsVisible="{Binding HasTooMany}" Text="{Binding TooManyText}" />
+
+      <!-- Channel wall -->
+      <ItemsRepeater ItemsSource="{Binding Tiles}">
+        <ItemsRepeater.Layout>
+          <UniformGridLayout MinItemWidth="190" MinItemHeight="128" MinColumnSpacing="14" MinRowSpacing="14" ItemsStretch="Uniform" />
+        </ItemsRepeater.Layout>
+        <ItemsRepeater.ItemTemplate>
+          <DataTemplate x:DataType="vm:IptvChannelViewModel">
+            <Button Classes="media-tile" Command="{Binding PlayCommand}" ToolTip.Tip="{Binding Name}" Padding="0"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+              <Button.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Watch" Command="{Binding PlayCommand}" />
+                  <MenuItem Header="Watch alongside (multi-view)" Command="{Binding AlongsideCommand}" />
+                  <MenuItem Header="Favorite / unfavorite" Command="{Binding ToggleFavoriteCommand}" />
+                </ContextMenu>
+              </Button.ContextMenu>
+              <Border CornerRadius="12" ClipToBounds="True" BorderThickness="1" BorderBrush="{DynamicResource LineBrush}"
+                      Classes.playing="{Binding IsPlaying}" Background="{StaticResource TvTileBrush}">
+                <Border.Styles>
+                  <Style Selector="Border.playing">
+                    <Setter Property="BorderBrush" Value="{DynamicResource BiolumeBrush}" />
+                    <Setter Property="BorderThickness" Value="2" />
+                    <Setter Property="BoxShadow" Value="0 0 18 0 #663FE0C5" />
+                  </Style>
+                </Border.Styles>
+                <Grid RowDefinitions="*,Auto">
+                  <!-- Big ghost number, logo or monogram -->
+                  <Panel>
+                    <Border Background="{StaticResource TvSportsTileBrush}" IsVisible="{Binding IsSports}" />
+                    <TextBlock Text="{Binding NumberText}" FontSize="52" FontWeight="Black" Opacity="0.08" Foreground="White"
+                               HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,8,0" />
+                    <TextBlock Text="{Binding Monogram}" FontSize="30" FontWeight="Bold" Foreground="{DynamicResource LineBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding NoLogo}" />
+                    <Image Stretch="Uniform" Margin="22,14,22,6" MaxHeight="64" IsVisible="{Binding HasLogo}" img:ImageLoader.Source="{Binding LogoUrl}" />
+                    <Border Classes="live-badge" Margin="8" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding IsSports}">
+                      <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="6" Height="6" Fill="White" VerticalAlignment="Center" /><TextBlock Text="SPORTS" /></StackPanel>
+                    </Border>
+                    <Border Classes="media-play" Width="40" Height="40" CornerRadius="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <Path Width="14" Height="16" Margin="3,0,0,0" Stretch="Uniform" Fill="#F2FFFFFF" Data="M0 0 L12 7 L0 14 Z" />
+                    </Border>
+                    <TextBlock Text="★" FontSize="18" Foreground="{DynamicResource BrassBrush}" Margin="0,6,8,0" HorizontalAlignment="Right"
+                               VerticalAlignment="Top" IsVisible="{Binding IsFavorite}" />
+                  </Panel>
+                  <StackPanel Grid.Row="1" Margin="12,6,12,10" Spacing="1" Background="#55000000">
+                    <TextBlock FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" Text="{Binding Name}" />
+                    <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis">
+                      <Run Text="CH " /><Run Text="{Binding NumberText}" /><Run Text="  " /><Run Text="{Binding GroupText}" />
+                    </TextBlock>
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </Button>
+          </DataTemplate>
+        </ItemsRepeater.ItemTemplate>
+      </ItemsRepeater>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

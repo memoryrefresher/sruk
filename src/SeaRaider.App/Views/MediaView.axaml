@@ -1,0 +1,532 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:services="using:SeaRaider.App.Services"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:views="using:SeaRaider.App.Views"
+             xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="SeaRaider.App.Views.MediaView"
+             x:DataType="vm:MediaViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="32,4,32,40" Spacing="22">
+
+      <!-- Title, search and refresh -->
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <StackPanel Spacing="2" VerticalAlignment="Center">
+          <TextBlock Classes="h1" Text="Media" />
+          <TextBlock Classes="muted" Text="Movies, shows, trailers and streams from your sites and channels, and what friends share." />
+        </StackPanel>
+        <Panel Grid.Column="1" IsVisible="{Binding IsChannelsTab}">
+          <TextBox Classes="search" Width="280" Margin="16,0,0,0" VerticalAlignment="Center"
+                   Watermark="Search videos" Text="{Binding SearchText}" IsVisible="{Binding HasSections}" />
+        </Panel>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" Margin="12,0,0,0" VerticalAlignment="Center"
+                    IsVisible="{Binding ShowFeedTools}">
+          <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasSections}">
+          <ProgressBar Classes="thin" Width="70" IsIndeterminate="True" VerticalAlignment="Center" IsVisible="{Binding IsRefreshing}" />
+          <Button Classes="quiet" Content="Refresh" Command="{Binding RefreshCommand}" ToolTip.Tip="Check every channel for new videos" IsVisible="{Binding IsAdvanced, Source={x:Static services:UiMode.Current}}" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+
+      <!-- Browse | Channels & sites | Shared with friends -->
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,-6,0,0">
+        <Button Classes="source-tab" Classes.selected="{Binding IsBrowseTab}" Command="{Binding ShowBrowseCommand}"
+                ToolTip.Tip="Everything from your sites and channels in one list, like the store">
+          <TextBlock Classes="source-name" Text="Browse" />
+        </Button>
+        <Button Classes="source-tab" Classes.selected="{Binding IsChannelsTab}" Command="{Binding ShowChannelsCommand}"
+                ToolTip.Tip="Add, refresh and remove your sites, channels, feeds and streams" IsVisible="{Binding ShowChannelsTabButton}">
+          <TextBlock Classes="source-name" Text="Channels &amp; sites" />
+        </Button>
+        <Button Classes="source-tab" Classes.selected="{Binding IsLiveTab}" Command="{Binding ShowLiveCommand}"
+                ToolTip.Tip="Your IPTV channels (M3U link): sports, news and more, in SeaRaider's player">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Ellipse Width="7" Height="7" Fill="{DynamicResource CoralBrush}" VerticalAlignment="Center" />
+            <TextBlock Classes="source-name" Text="Live TV" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <Button Classes="source-tab" Classes.selected="{Binding IsSharedTab}" Command="{Binding ShowSharedCommand}"
+                ToolTip.Tip="Videos, trailers and streams your friends shared, with reactions and comments">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Classes="source-name" Text="Shared with friends" VerticalAlignment="Center" />
+            <Border Classes="unread" IsVisible="{Binding Shared.HasUnread}" VerticalAlignment="Center">
+              <TextBlock Text="{Binding Shared.UnreadCount}" />
+            </Border>
+          </StackPanel>
+        </Button>
+      </StackPanel>
+
+      <!-- Live TV: the playlist's channels -->
+      <Panel IsVisible="{Binding IsLiveTab}">
+        <views:IptvView DataContext="{Binding LiveTv}" />
+      </Panel>
+
+      <!-- Browse: every title and video from every source, like the store -->
+      <StackPanel Spacing="18" IsVisible="{Binding IsBrowseTab}">
+
+        <Border Classes="error-banner" IsVisible="{Binding HasError}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+            <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+          </Grid>
+        </Border>
+
+        <!-- Nothing added yet -->
+        <Border Classes="panel" Padding="40" IsVisible="{Binding !HasAnything}">
+          <StackPanel Spacing="10" MaxWidth="640" HorizontalAlignment="Left">
+            <TextBlock Classes="h2" Text="Add a site or channel to browse" />
+            <TextBlock Classes="body muted" TextWrapping="Wrap"
+                       Text="Add a site that lists movies or shows (its home page or its movies page), a YouTube or Twitch channel, a feed or a stream. Everything they list shows up here as one big list you can search, like the store. Click a title to play it in SeaRaider's player." />
+            <Button Classes="primary" HorizontalAlignment="Left" Margin="0,8,0,0" Content="Add a site or channel"
+                    Command="{Binding ShowChannelsCommand}" />
+          </StackPanel>
+        </Border>
+
+        <StackPanel Spacing="14" IsVisible="{Binding HasAnything}">
+          <!-- Search, like the store's -->
+          <Panel>
+            <TextBox Classes="search" Text="{Binding BrowseSearch}" FontSize="16" Padding="44,12,70,12"
+                     Watermark="Search every site and channel" />
+            <Path Width="16" Height="16" Margin="16,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Stretch="Uniform"
+                  IsHitTestVisible="False" Stroke="{DynamicResource MistBrush}" StrokeThickness="2" StrokeLineCap="Round"
+                  Data="M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15Zm5.3-2.2L21 21" />
+            <Button Classes="link" Content="Clear" Margin="0,0,14,0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Command="{Binding ClearBrowseSearchCommand}" IsVisible="{Binding BrowseSearch, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </Panel>
+
+          <!-- One chip per source -->
+          <ItemsControl ItemsSource="{Binding SourceChips}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MediaSourceChipViewModel">
+                <Button Classes="source-tab" Classes.selected="{Binding IsSelected}" Margin="0,0,8,8" Command="{Binding ChooseCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="source-name" Text="{Binding Name}" MaxWidth="220" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Classes="muted small" Text="{Binding CountText}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- One chip per type: the site's sections and sports ("Football", "Movies", "TV Shows" …) -->
+          <ItemsControl ItemsSource="{Binding TypeChips}" IsVisible="{Binding HasTypeChips}" Margin="0,-6,0,0">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:MediaSourceChipViewModel">
+                <Button Classes="source-tab" Classes.selected="{Binding IsSelected}" Margin="0,0,6,6" Padding="10,4" Command="{Binding ChooseCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock FontSize="12" Text="{Binding Name}" MaxWidth="200" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <TextBlock Classes="muted small" Text="{Binding CountText}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Classes="muted small" VerticalAlignment="Center" Text="{Binding BrowseResultsText}" />
+            <ProgressBar Classes="thin" Width="70" IsIndeterminate="True" VerticalAlignment="Center" IsVisible="{Binding IsRefreshing}" />
+          </StackPanel>
+          <TextBlock Classes="muted" IsVisible="{Binding IsBrowseNoResults}" TextWrapping="Wrap"
+                     Text="Nothing matches that. Try fewer words, or choose All." />
+        </StackPanel>
+
+        <!-- Titles from sites' lists, sorted by type: a heading and a grid of posters per type -->
+        <ItemsControl ItemsSource="{Binding BrowseGroups}" IsVisible="{Binding HasBrowseTitles}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:MediaTypeGroupViewModel">
+              <StackPanel Spacing="12" Margin="0,0,0,26">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Classes="h2" Text="{Binding Name}" VerticalAlignment="Center" />
+                  <TextBlock Classes="muted small" Text="{Binding CountText}" VerticalAlignment="Center" />
+                </StackPanel>
+                <ItemsRepeater ItemsSource="{Binding Tiles}">
+                  <ItemsRepeater.Layout>
+                    <UniformGridLayout MinItemWidth="170" MinItemHeight="318" MinColumnSpacing="16" MinRowSpacing="18"
+                                       ItemsStretch="Uniform" />
+                  </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                      <DataTemplate x:DataType="vm:MediaTileViewModel">
+                        <Button Classes="media-tile" Command="{Binding PlayCommand}" ToolTip.Tip="{Binding Title}" views:ChatDrag.Source="{Binding}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                          <Button.ContextMenu>
+                            <ContextMenu>
+                              <MenuItem Header="Play" Command="{Binding PlayCommand}" />
+                      <MenuItem Header="Play on link…" IsVisible="{Binding CanPickLink}">
+                        <MenuItem Header="Automatic (first link that works)" Command="{Binding PlayLinkCommand}" CommandParameter="0" />
+                        <MenuItem Header="Link 1" Command="{Binding PlayLinkCommand}" CommandParameter="1" />
+                        <MenuItem Header="Link 2" IsVisible="{Binding ShowLink2}" Command="{Binding PlayLinkCommand}" CommandParameter="2" />
+                        <MenuItem Header="Link 3" IsVisible="{Binding ShowLink3}" Command="{Binding PlayLinkCommand}" CommandParameter="3" />
+                        <MenuItem Header="Link 4" IsVisible="{Binding ShowLink4}" Command="{Binding PlayLinkCommand}" CommandParameter="4" />
+                      </MenuItem>
+                              <MenuItem Header="Watch alongside (multi-view)" Command="{Binding WatchAlongsideCommand}" />
+                              <MenuItem Header="Open its page in the browser" Command="{Binding OpenPageCommand}" />
+                              <MenuItem Header="Send to a friend…" Command="{Binding SendToFriendCommand}" />
+                          <MenuItem Header="Share with friends…" Command="{Binding ShareCommand}" />
+                            </ContextMenu>
+                          </Button.ContextMenu>
+                          <DockPanel>
+                            <views:AspectRatioBox DockPanel.Dock="Top" Ratio="0.6666667">
+                              <Grid>
+                                <Border Background="{DynamicResource CoverPlaceholderBrush}">
+                                  <TextBlock Text="{Binding Monogram}" FontSize="30" FontWeight="Bold" Foreground="{DynamicResource LineBrush}"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <!-- A poster found for the title (or the site's own picture) -->
+                                <views:FitImage AlwaysFill="True" IsVisible="{Binding HasPoster}" Url="{Binding PosterUrl}" />
+                                <!-- Nothing found for it: its sport's logo -->
+                                <Border IsVisible="{Binding ShowSportIcon}" Background="{DynamicResource MediaPanelDiagonalBrush}">
+                                  <Viewbox Margin="26" MaxHeight="96" Stretch="Uniform">
+                                    <TextBlock Text="{Binding SportIcon}" FontSize="64" FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji" />
+                                  </Viewbox>
+                                </Border>
+                                <!-- A match: both sides' crests, "VS" between -->
+                                <Border IsVisible="{Binding ShowMatchupPanel}" Background="{DynamicResource MediaPanelVerticalBrush}">
+                                  <Panel>
+                                  <Grid RowDefinitions="*,Auto,*" Margin="22,18">
+                                    <Panel>
+                                      <TextBlock Text="{Binding HomeMonogram}" FontSize="30" FontWeight="Bold" Foreground="{DynamicResource MistBrush}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasHomeBadge}" />
+                                      <Image Stretch="Uniform" IsVisible="{Binding HasHomeBadge}" img:ImageLoader.Source="{Binding HomeBadgeUrl}" />
+                                    </Panel>
+                                    <TextBlock Grid.Row="1" Text="VS" FontSize="15" FontWeight="Black" Margin="0,8" HorizontalAlignment="Center"
+                                               Foreground="{DynamicResource BiolumeBrush}" />
+                                    <Panel Grid.Row="2">
+                                      <TextBlock Text="{Binding AwayMonogram}" FontSize="30" FontWeight="Bold" Foreground="{DynamicResource MistBrush}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasAwayBadge}" />
+                                      <Image Stretch="Uniform" IsVisible="{Binding HasAwayBadge}" img:ImageLoader.Source="{Binding AwayBadgeUrl}" />
+                                    </Panel>
+                                  </Grid>
+                                  </Panel>
+                                </Border>
+                                <Border Classes="live-badge" IsVisible="{Binding IsLive}" Margin="10"
+                                        HorizontalAlignment="Left" VerticalAlignment="Top">
+                                  <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="6" Height="6" Fill="White" VerticalAlignment="Center" /><TextBlock Text="LIVE" /></StackPanel>
+                                </Border>
+                                <Border Classes="media-play" Width="54" Height="54" CornerRadius="27"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsResolving}">
+                                  <Path Width="18" Height="20" Margin="4,0,0,0" Stretch="Uniform" Fill="#F2FFFFFF" Data="M0 0 L12 7 L0 14 Z" />
+                                </Border>
+                                <!-- Reading the title's page for its player -->
+                                <Border Background="{DynamicResource MediaScrimBrush}" IsVisible="{Binding IsResolving}">
+                                  <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <ProgressBar Classes="thin" Width="80" IsIndeterminate="True" />
+                                    <TextBlock Classes="small" Text="Finding the player…" HorizontalAlignment="Center" />
+                                  </StackPanel>
+                                </Border>
+                              </Grid>
+                            </views:AspectRatioBox>
+                            <StackPanel Margin="10,8,10,10" Spacing="2">
+                              <TextBlock FontWeight="SemiBold" FontSize="13" LineHeight="17" MaxLines="2" TextWrapping="Wrap"
+                                         TextTrimming="CharacterEllipsis" Text="{Binding Title}" />
+                              <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis" Text="{Binding TitleDetail}" />
+                            </StackPanel>
+                          </DockPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Videos and streams from channels, feeds and pages -->
+        <StackPanel Spacing="12" IsVisible="{Binding HasBrowseVideos}">
+          <TextBlock Classes="h2" Text="Videos" IsVisible="{Binding ShowBothHeadings}" />
+          <ItemsRepeater ItemsSource="{Binding BrowseVideos}">
+            <ItemsRepeater.Layout>
+              <UniformGridLayout MinItemWidth="270" MinItemHeight="232" MinColumnSpacing="16" MinRowSpacing="16"
+                                 ItemsStretch="Uniform" />
+            </ItemsRepeater.Layout>
+            <ItemsRepeater.ItemTemplate>
+              <DataTemplate x:DataType="vm:MediaTileViewModel">
+                <Button Classes="media-tile" Command="{Binding PlayCommand}" ToolTip.Tip="{Binding Title}" views:ChatDrag.Source="{Binding}"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                  <Button.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Play" Command="{Binding PlayCommand}" />
+                      <MenuItem Header="Play on link…" IsVisible="{Binding CanPickLink}">
+                        <MenuItem Header="Automatic (first link that works)" Command="{Binding PlayLinkCommand}" CommandParameter="0" />
+                        <MenuItem Header="Link 1" Command="{Binding PlayLinkCommand}" CommandParameter="1" />
+                        <MenuItem Header="Link 2" IsVisible="{Binding ShowLink2}" Command="{Binding PlayLinkCommand}" CommandParameter="2" />
+                        <MenuItem Header="Link 3" IsVisible="{Binding ShowLink3}" Command="{Binding PlayLinkCommand}" CommandParameter="3" />
+                        <MenuItem Header="Link 4" IsVisible="{Binding ShowLink4}" Command="{Binding PlayLinkCommand}" CommandParameter="4" />
+                      </MenuItem>
+                              <MenuItem Header="Watch alongside (multi-view)" Command="{Binding WatchAlongsideCommand}" />
+                      <MenuItem Header="Send to a friend…" Command="{Binding SendToFriendCommand}" />
+                          <MenuItem Header="Share with friends…" Command="{Binding ShareCommand}" />
+                    </ContextMenu>
+                  </Button.ContextMenu>
+                  <DockPanel>
+                    <views:AspectRatioBox DockPanel.Dock="Top" Ratio="1.7777778">
+                      <Grid>
+                        <Border Background="{DynamicResource CoverPlaceholderBrush}">
+                          <TextBlock Text="{Binding Monogram}" FontSize="34" FontWeight="Bold" Foreground="{DynamicResource LineBrush}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <!-- The picture found for it (poster), else the site's: a wide one fills, a tall poster shows whole -->
+                        <views:FitImage AlwaysFill="{Binding FillPicture}" IsVisible="{Binding HasPoster}" Url="{Binding PosterUrl}" />
+                        <!-- Nothing found for it: its sport's logo -->
+                        <Border IsVisible="{Binding ShowSportIcon}" Background="{DynamicResource MediaPanelDiagonalBrush}">
+                          <Viewbox Margin="26" MaxHeight="96" Stretch="Uniform">
+                            <TextBlock Text="{Binding SportIcon}" FontSize="64" FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji" />
+                          </Viewbox>
+                        </Border>
+                        <!-- A match: both sides' crests side by side, "VS" between -->
+                        <Border IsVisible="{Binding ShowMatchupPanel}" Background="{DynamicResource MediaPanelHorizontalBrush}">
+                          <Panel>
+                          <Grid ColumnDefinitions="*,Auto,*" Margin="22,18">
+                            <Panel>
+                              <TextBlock Text="{Binding HomeMonogram}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource MistBrush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasHomeBadge}" />
+                              <Image Stretch="Uniform" IsVisible="{Binding HasHomeBadge}" img:ImageLoader.Source="{Binding HomeBadgeUrl}" />
+                            </Panel>
+                            <TextBlock Grid.Column="1" Text="VS" FontSize="15" FontWeight="Black" Margin="14,0" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BiolumeBrush}" />
+                            <Panel Grid.Column="2">
+                              <TextBlock Text="{Binding AwayMonogram}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource MistBrush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasAwayBadge}" />
+                              <Image Stretch="Uniform" IsVisible="{Binding HasAwayBadge}" img:ImageLoader.Source="{Binding AwayBadgeUrl}" />
+                            </Panel>
+                          </Grid>
+                          </Panel>
+                        </Border>
+                        <Border Classes="media-play" Width="54" Height="54" CornerRadius="27"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                          <Path Width="18" Height="20" Margin="4,0,0,0" Stretch="Uniform" Fill="#F2FFFFFF" Data="M0 0 L12 7 L0 14 Z" />
+                        </Border>
+                        <Border Classes="live-badge" IsVisible="{Binding IsLive}" Margin="10"
+                                HorizontalAlignment="Left" VerticalAlignment="Top">
+                          <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="6" Height="6" Fill="White" VerticalAlignment="Center" /><TextBlock Text="LIVE" /></StackPanel>
+                        </Border>
+                      </Grid>
+                    </views:AspectRatioBox>
+                    <StackPanel Margin="12,10,12,12" Spacing="3">
+                      <TextBlock FontWeight="SemiBold" FontSize="14" LineHeight="19" MaxLines="2" TextWrapping="Wrap"
+                                 TextTrimming="CharacterEllipsis" Text="{Binding Title}" />
+                      <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
+                    </StackPanel>
+                  </DockPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+          </ItemsRepeater>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- What friends shared -->
+      <Panel IsVisible="{Binding IsSharedTab}">
+        <views:SharedMediaView DataContext="{Binding Shared}" />
+      </Panel>
+
+      <!-- Your channels -->
+      <StackPanel Spacing="22" IsVisible="{Binding IsChannelsTab}">
+
+      <Border Classes="error-banner" IsVisible="{Binding HasError}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+          <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+        </Grid>
+      </Border>
+
+      <!-- Add a channel / feed / page -->
+      <Border Classes="panel" Padding="20">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,200,Auto">
+            <TextBox Text="{Binding NewSourceUrl}" FontSize="15"
+                     Watermark="A site with movies or shows, a stream (.m3u8), video, channel, feed or page: https://…" />
+            <TextBox Grid.Column="1" Margin="12,0,0,0" Text="{Binding NewSourceName}" FontSize="15" Watermark="Name (optional)" />
+            <Border Grid.Column="2" Classes="glow" Margin="12,0,0,0">
+              <Button Classes="primary" Content="Add" Command="{Binding AddSourceCommand}" IsEnabled="{Binding !IsAdding}" IsDefault="{Binding IsChannelsTab}" />
+            </Border>
+          </Grid>
+          <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsAdding}">
+            <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" />
+            <TextBlock Classes="muted small" Text="Reading it…" />
+          </StackPanel>
+          <TextBlock Classes="muted small" TextWrapping="Wrap"
+                     Text="Add a site that lists movies or shows (its home page, or the page listing its movies): SeaRaider reads its titles page after page, like the store reads a game site, and they show on Browse. Click one and its page is read for the player. You can also add any stream or video by its address: an HLS stream (.m3u8), a DASH manifest (.mpd), a video file, or a single YouTube, Vimeo, Twitch, Kick or Dailymotion video. Channels show their newest uploads; Twitch and Kick channels go live with the stream; feeds and pages show the videos in them. Everything plays right here, with pop-up ads blocked. (rtmp:// and rtsp:// streams can't play in the app; use their HLS address.)" />
+        </StackPanel>
+      </Border>
+
+      <!-- Nothing yet -->
+      <Border Classes="panel" Padding="40" IsVisible="{Binding IsEmpty}">
+        <StackPanel Spacing="10" MaxWidth="600" HorizontalAlignment="Left">
+          <TextBlock Classes="h2" Text="Your channels go here" />
+          <TextBlock Classes="body muted" TextWrapping="Wrap"
+                     Text="Add the trailer channels you like (a publisher's or a gaming site's YouTube channel, a streamer on Twitch, a video feed) and their latest videos line up here as boxes. Click one to watch it in SeaRaider's player." />
+        </StackPanel>
+      </Border>
+
+      <!-- One section per channel -->
+      <ItemsControl ItemsSource="{Binding Sections}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:MediaSectionViewModel">
+            <StackPanel Spacing="12" Margin="0,0,0,26">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Channel picture -->
+                <Border Width="40" Height="40" CornerRadius="20" ClipToBounds="True" Margin="0,0,12,0" VerticalAlignment="Center"
+                        Background="{DynamicResource CoverPlaceholderBrush}">
+                  <Panel>
+                    <TextBlock Text="{Binding Monogram}" FontWeight="Bold" FontSize="16" Foreground="{DynamicResource MistBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Image Stretch="UniformToFill" IsVisible="{Binding HasAvatar}" img:ImageLoader.Source="{Binding AvatarUrl}" />
+                  </Panel>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Classes="h2" Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <Border Classes="chip" VerticalAlignment="Center"><TextBlock Text="{Binding KindText}" /></Border>
+                  </StackPanel>
+                  <TextBlock Classes="muted small" Text="{Binding StatusText}" />
+                  <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding HasError}" Text="{Binding Error}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                  <Button Classes="link" Content="{Binding ExpandText}" IsVisible="{Binding CanExpand}" Command="{Binding ToggleExpandedCommand}" />
+                  <Button Classes="link" Content="Open site" Command="{Binding OpenSiteCommand}" />
+                  <Button Classes="link" Content="Player…" Command="{Binding TogglePlayerEditorCommand}" IsVisible="{Binding CanSetPlayer}"
+                          ToolTip.Tip="Tell SeaRaider where this site's video is (the player's src)" />
+                  <Button Classes="link" Content="Refresh" Command="{Binding RefreshCommand}" />
+                  <Button Classes="link" Content="Remove" Command="{Binding RemoveCommand}" />
+                </StackPanel>
+              </Grid>
+
+              <!-- Where the video is on this site's pages -->
+              <Border Classes="panel" Padding="16" IsVisible="{Binding IsEditingPlayer}">
+                <StackPanel Spacing="10">
+                  <CheckBox IsChecked="{Binding PlayerPageMode}"
+                            Content="Play the site's page and press play for me (when the video only plays inside the site's own page)" />
+                  <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding PlayerPageMode}" Margin="28,0,0,0">
+                    <TextBlock VerticalAlignment="Center" Text="Start on link" />
+                    <NumericUpDown Value="{Binding PlayerLink}" Minimum="0" Maximum="9" Increment="1" FormatString="0" Width="130" />
+                    <TextBlock Classes="muted small" VerticalAlignment="Center" Text="0 = try each link until one plays. Right-click a title › Play on link… to pick another." />
+                  </StackPanel>
+                  <TextBlock FontWeight="SemiBold" Text="Where this site's video is" />
+                  <TextBox Text="{Binding PlayerHint}" Watermark="iframe#player" />
+                  <TextBlock Classes="muted small" TextWrapping="Wrap"
+                             Text="Used when you play one of this site's titles, before SeaRaider looks for the player itself. Leave it empty to find the player automatically." />
+                  <TextBlock Classes="muted small" TextWrapping="Wrap"
+                             Text="• A selector for the element that holds the video's address (its src is read): iframe#player, .stream-box iframe. To read another attribute, add it after @: iframe.live@data-src" />
+                  <TextBlock Classes="muted small" TextWrapping="Wrap"
+                             Text="• An address that is the same on every page apart from the title: https://embed.example.com/e/{slug} ({slug} is the last part of the title page's address; {path}, {host} and {url} also work)" />
+                  <TextBlock Classes="muted small" TextWrapping="Wrap"
+                             Text="• A pattern in the page's HTML, starting regex: , whose first group is the address: regex:&quot;(https://[^&quot;]+\.m3u8)&quot;" />
+                  <TextBlock FontWeight="SemiBold" Margin="0,6,0,0" Text="Click first (optional)" />
+                  <TextBox Text="{Binding PlayerClick}" Watermark="(empty = press play)   or   text:Link-2 >> #videoPlayer" />
+                  <TextBlock Classes="muted small" TextWrapping="Wrap"
+                             Text="For a site whose video only appears after you click something. Leave this empty and SeaRaider presses the player's play button (the page's first link stays selected). Or say what to click, in order, separated by &gt;&gt; : a selector, or text: followed by the button's words. Example, to use Link-2: text:Link-2 &gt;&gt; #videoPlayer. SeaRaider opens the page in a hidden browser, clicks, and reads the video's address once it appears. Popups and ads are blocked while it does." />
+                  <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding HasHintError}" Text="{Binding HintError}" />
+                  <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button Classes="primary" Content="Save" Command="{Binding SavePlayerHintCommand}" />
+                    <Button Classes="link" Content="Use automatic" Command="{Binding ClearPlayerHintCommand}" />
+                    <Button Classes="link" Content="Cancel" Command="{Binding TogglePlayerEditorCommand}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <!-- The boxes: only the ones on screen are created -->
+              <ItemsRepeater ItemsSource="{Binding Tiles}">
+                <ItemsRepeater.Layout>
+                  <UniformGridLayout MinItemWidth="270" MinItemHeight="232" MinColumnSpacing="16" MinRowSpacing="16"
+                                     ItemsStretch="Uniform" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                  <DataTemplate x:DataType="vm:MediaTileViewModel">
+                    <Button Classes="media-tile" Command="{Binding PlayCommand}" ToolTip.Tip="{Binding Title}" views:ChatDrag.Source="{Binding}"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                      <Button.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Play" Command="{Binding PlayCommand}" />
+                      <MenuItem Header="Play on link…" IsVisible="{Binding CanPickLink}">
+                        <MenuItem Header="Automatic (first link that works)" Command="{Binding PlayLinkCommand}" CommandParameter="0" />
+                        <MenuItem Header="Link 1" Command="{Binding PlayLinkCommand}" CommandParameter="1" />
+                        <MenuItem Header="Link 2" IsVisible="{Binding ShowLink2}" Command="{Binding PlayLinkCommand}" CommandParameter="2" />
+                        <MenuItem Header="Link 3" IsVisible="{Binding ShowLink3}" Command="{Binding PlayLinkCommand}" CommandParameter="3" />
+                        <MenuItem Header="Link 4" IsVisible="{Binding ShowLink4}" Command="{Binding PlayLinkCommand}" CommandParameter="4" />
+                      </MenuItem>
+                              <MenuItem Header="Watch alongside (multi-view)" Command="{Binding WatchAlongsideCommand}" />
+                          <MenuItem Header="Send to a friend…" Command="{Binding SendToFriendCommand}" />
+                          <MenuItem Header="Share with friends…" Command="{Binding ShareCommand}" />
+                        </ContextMenu>
+                      </Button.ContextMenu>
+                      <DockPanel>
+                        <views:AspectRatioBox DockPanel.Dock="Top" Ratio="1.7777778">
+                          <Grid>
+                            <Border Background="{DynamicResource CoverPlaceholderBrush}">
+                              <TextBlock Text="{Binding Monogram}" FontSize="34" FontWeight="Bold" Foreground="{DynamicResource LineBrush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <!-- The picture found for it (poster), else the site's: a wide one fills, a tall poster shows whole -->
+                            <views:FitImage AlwaysFill="{Binding FillPicture}" IsVisible="{Binding HasPoster}" Url="{Binding PosterUrl}" />
+                            <!-- Nothing found for it: its sport's logo -->
+                            <Border IsVisible="{Binding ShowSportIcon}" Background="{DynamicResource MediaPanelDiagonalBrush}">
+                              <Viewbox Margin="26" MaxHeight="96" Stretch="Uniform">
+                                <TextBlock Text="{Binding SportIcon}" FontSize="64" FontFamily="Segoe UI Emoji, Noto Color Emoji, Apple Color Emoji" />
+                              </Viewbox>
+                            </Border>
+                            <!-- A match: both sides' crests side by side, "VS" between -->
+                            <Border IsVisible="{Binding ShowMatchupPanel}" Background="{DynamicResource MediaPanelHorizontalBrush}">
+                              <Panel>
+                              <Grid ColumnDefinitions="*,Auto,*" Margin="22,18">
+                                <Panel>
+                                  <TextBlock Text="{Binding HomeMonogram}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource MistBrush}"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasHomeBadge}" />
+                                  <Image Stretch="Uniform" IsVisible="{Binding HasHomeBadge}" img:ImageLoader.Source="{Binding HomeBadgeUrl}" />
+                                </Panel>
+                                <TextBlock Grid.Column="1" Text="VS" FontSize="15" FontWeight="Black" Margin="14,0" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource BiolumeBrush}" />
+                                <Panel Grid.Column="2">
+                                  <TextBlock Text="{Binding AwayMonogram}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource MistBrush}"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !HasAwayBadge}" />
+                                  <Image Stretch="Uniform" IsVisible="{Binding HasAwayBadge}" img:ImageLoader.Source="{Binding AwayBadgeUrl}" />
+                                </Panel>
+                              </Grid>
+                              </Panel>
+                            </Border>
+                            <!-- Play button, shown on hover -->
+                            <Border Classes="media-play" Width="54" Height="54" CornerRadius="27"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                              <Path Width="18" Height="20" Margin="4,0,0,0" Stretch="Uniform" Fill="#F2FFFFFF" Data="M0 0 L12 7 L0 14 Z" />
+                            </Border>
+                            <Border Classes="live-badge" IsVisible="{Binding IsLive}" Margin="10"
+                                    HorizontalAlignment="Left" VerticalAlignment="Top">
+                              <StackPanel Orientation="Horizontal" Spacing="5"><Ellipse Width="6" Height="6" Fill="White" VerticalAlignment="Center" /><TextBlock Text="LIVE" /></StackPanel>
+                            </Border>
+                            <!-- Share with friends, shown on hover -->
+                            <Button Classes="media-share" Margin="8" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Command="{Binding ShareCommand}" ToolTip.Tip="Share with friends">
+                              <Path Width="14" Height="14" Stretch="Uniform" Stroke="#F2FFFFFF" StrokeThickness="1.7"
+                                    StrokeLineCap="Round" StrokeJoin="Round"
+                                    Data="M7 1 L7 9.5 M3.5 4.5 L7 1 L10.5 4.5 M1.5 8.5 L1.5 13 L12.5 13 L12.5 8.5" />
+                            </Button>
+                          </Grid>
+                        </views:AspectRatioBox>
+                        <StackPanel Margin="12,10,12,12" Spacing="3">
+                          <TextBlock FontWeight="SemiBold" FontSize="14" LineHeight="19" MaxLines="2" TextWrapping="Wrap"
+                                     TextTrimming="CharacterEllipsis" Text="{Binding Title}" />
+                          <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
+                        </StackPanel>
+                      </DockPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+              </ItemsRepeater>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

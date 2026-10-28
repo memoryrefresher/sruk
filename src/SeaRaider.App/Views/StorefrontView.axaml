@@ -1,0 +1,460 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:services="using:SeaRaider.App.Services"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             xmlns:views="using:SeaRaider.App.Views"
+             x:Class="SeaRaider.App.Views.StorefrontView"
+             x:DataType="vm:StorefrontViewModel">
+
+  <UserControl.Styles>
+    <!-- A card's description stays hidden until the mouse is over the card (it fades in; the grid doesn't move). -->
+    <Style Selector="TextBlock.card-desc">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Border.card:pointerover TextBlock.card-desc">
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- The scroll viewer reports when you near the end, which loads the next page (code-behind). -->
+  <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="32,4,32,40" Spacing="24">
+
+      <Border Classes="error-banner" IsVisible="{Binding HasError}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+          <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+        </Grid>
+      </Border>
+
+      <!-- Search + sort: the first thing on the page, because searching is the fast path now. -->
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+          <Panel>
+            <TextBox x:Name="SearchBox" Classes="search" Text="{Binding SearchText}" FontSize="16" Padding="44,12,40,12"
+                     Watermark="Search every source: title, genre or developer" />
+            <Path Width="16" Height="16" Margin="16,0,0,0" HorizontalAlignment="Left" VerticalAlignment="Center" Stretch="Uniform"
+                  IsHitTestVisible="False" Stroke="{DynamicResource MistBrush}" StrokeThickness="2" StrokeLineCap="Round"
+                  Data="M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15Zm5.3-2.2L21 21" />
+            <Button Classes="link" Content="Clear" Margin="0,0,14,0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    IsVisible="{Binding SearchText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                    Command="{Binding ClearSearchCommand}" />
+          </Panel>
+          <!-- Which sources to show and search -->
+          <Button Grid.Column="1" Classes="quiet" Margin="12,0,0,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                  ToolTip.Tip="Choose which sources the store shows and searches">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock VerticalAlignment="Center" MaxWidth="180" TextTrimming="CharacterEllipsis" Text="{Binding SourceFilterText}" />
+              <Path Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center" Stroke="{DynamicResource MistBrush}"
+                    StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" Data="M2 4l4 4 4-4" />
+            </StackPanel>
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <StackPanel Spacing="6" MinWidth="280" MaxWidth="360" Margin="4">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock FontWeight="SemiBold" VerticalAlignment="Center" Text="Show and search" />
+                    <Button Grid.Column="1" Classes="link" Content="All sources" Command="{Binding SelectAllSourcesCommand}" />
+                  </Grid>
+                  <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding SourceFilters}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SourceFilterItem">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <CheckBox IsChecked="{Binding IsSelected}">
+                              <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                            </CheckBox>
+                            <Button Grid.Column="1" Classes="link" Content="Only" VerticalAlignment="Center"
+                                    ToolTip.Tip="Show and search only this source" Command="{Binding OnlyCommand}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                  <TextBlock Classes="muted small" TextWrapping="Wrap" IsVisible="{Binding HasNoSourceFilters}"
+                             Text="No sources are switched on. Switch them on in Sources." />
+                  <TextBlock Classes="muted small" TextWrapping="Wrap"
+                             Text="Sources switched off on the Sources page aren't listed here." />
+                  <Separator Margin="0,4" />
+                  <CheckBox IsChecked="{Binding HideAdultGames}" Content="Hide adult games (nudity, sexual content)"
+                            ToolTip.Tip="Hides games whose title, genres or description mention nudity or sexual content" />
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+          </Button>
+          <ComboBox Grid.Column="3" Margin="12,0,0,0" MinWidth="210" VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                    ItemsSource="{x:Static vm:StorefrontViewModel.SortChoices}"
+                    SelectedItem="{Binding SelectedSort}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:SortChoice">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <Button Grid.Column="4" Classes="quiet" Margin="12,0,0,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                  Content="Refresh" ToolTip.Tip="Ask the sites for their newest uploads" Command="{Binding RefreshCommand}" />
+        </Grid>
+
+        <!-- Multiplayer: games with "Online" in the title (works with the console buttons below) -->
+        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="False">
+          <Button Classes="source-tab" Classes.selected="{Binding MultiplayerOnly}" Command="{Binding ToggleMultiplayerCommand}"
+                  ToolTip.Tip="Every game with &quot;Online&quot; in its title (Settings › Store lists the ones left out)">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Path Width="16" Height="14" Stretch="Uniform" VerticalAlignment="Center" Stroke="{DynamicResource BiolumeBrush}"
+                    StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                    Data="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 10v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1M17 3.5a4 4 0 0 1 0 7.5M22 21v-1a6 6 0 0 0-4-5.6" />
+              <TextBlock Classes="source-name" Text="Multiplayer" VerticalAlignment="Center" />
+              <TextBlock Classes="muted small" Text="{Binding MultiplayerText}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+
+        <!-- All and PC games, then one menu per console maker the store has games for (Nintendo › Wii …) -->
+        <WrapPanel Orientation="Horizontal" IsVisible="{Binding HasSystemChips}">
+          <ItemsControl ItemsSource="{Binding TopChips}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:SystemChipViewModel">
+                <Button Classes="source-tab" Classes.selected="{Binding IsSelected}" Margin="0,0,8,8" Command="{Binding ChooseCommand}">
+                  <Button.ContextMenu>
+                    <ContextMenu IsVisible="{Binding CanHide}">
+                      <MenuItem Header="Hide" Command="{Binding HideCommand}" />
+                    </ContextMenu>
+                  </Button.ContextMenu>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="source-name" Text="{Binding Label}" VerticalAlignment="Center" />
+                    <TextBlock Classes="muted small" Text="{Binding CountText}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <ItemsControl ItemsSource="{Binding SystemMakers}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:SystemMakerViewModel">
+                <Button Classes="source-tab" Classes.selected="{Binding IsSelected}" Margin="0,0,8,8"
+                        ToolTip.Tip="Pick one of its consoles. Right-click to hide one.">
+                  <Button.Flyout>
+                    <MenuFlyout Placement="BottomEdgeAlignedLeft" ItemsSource="{Binding Consoles}">
+                      <MenuFlyout.ItemContainerTheme>
+                        <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="vm:SystemChipViewModel">
+                          <Setter Property="Header" Value="{Binding MenuText}" />
+                          <Setter Property="Command" Value="{Binding ChooseCommand}" />
+                        </ControlTheme>
+                      </MenuFlyout.ItemContainerTheme>
+                    </MenuFlyout>
+                  </Button.Flyout>
+                  <Button.ContextMenu>
+                    <ContextMenu ItemsSource="{Binding Consoles}">
+                      <ContextMenu.ItemContainerTheme>
+                        <ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}" x:DataType="vm:SystemChipViewModel">
+                          <Setter Property="Header" Value="{Binding HideText}" />
+                          <Setter Property="Command" Value="{Binding HideCommand}" />
+                        </ControlTheme>
+                      </ContextMenu.ItemContainerTheme>
+                    </ContextMenu>
+                  </Button.ContextMenu>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Classes="source-name" Text="{Binding Label}" VerticalAlignment="Center" />
+                    <TextBlock Classes="muted small" Text="{Binding CountText}" VerticalAlignment="Center" />
+                    <Path Width="9" Height="6" Stretch="Uniform" VerticalAlignment="Center" Stroke="{DynamicResource MistBrush}"
+                          StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round" Data="M1 1l4 4 4-4" />
+                  </StackPanel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </WrapPanel>
+        <Button Classes="link" FontSize="12" HorizontalAlignment="Left" Margin="0,-2,0,6" IsVisible="{Binding HasHiddenChips}"
+                Content="{Binding HiddenChipsText}" ToolTip.Tip="Show a hidden console button again">
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedLeft">
+              <ItemsControl ItemsSource="{Binding HiddenChips}" x:Name="HiddenChipList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SystemChoice">
+                    <Button Classes="link" HorizontalAlignment="Left" Padding="6,4" Content="{Binding Label, StringFormat='Show {0}'}"
+                            Command="{Binding #HiddenChipList.((vm:StorefrontViewModel)DataContext).ShowChipCommand}" CommandParameter="{Binding}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </Flyout>
+          </Button.Flyout>
+        </Button>
+
+        <StackPanel Orientation="Horizontal" Spacing="14">
+          <TextBlock Classes="muted small" VerticalAlignment="Center" Text="{Binding ResultsText}" />
+          <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" IsVisible="{Binding IsSearching}" />
+          <TextBlock Classes="muted small" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="760" Text="{Binding SearchStatus}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding HasReleaseLookupText}">
+          <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" />
+          <TextBlock Classes="muted small" Text="{Binding ReleaseLookupText}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsCrawling}">
+          <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" />
+          <TextBlock Classes="muted small" Text="{Binding CrawlText}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Featured banner (browsing only): the newest upload with art. -->
+      <Border Classes="hero" Height="340" ClipToBounds="True" IsVisible="{Binding HasFeatured}"
+              Background="{DynamicResource CoverPlaceholderBrush}">
+        <Grid>
+          <Image Stretch="UniformToFill" img:ImageLoader.Source="{Binding Featured.HeroImageUrl}" />
+          <Border Background="{DynamicResource HeroScrimBrush}" />
+          <StackPanel VerticalAlignment="Bottom" HorizontalAlignment="Left" MaxWidth="640" Margin="40,0,40,32" Spacing="12">
+            <TextBlock Classes="muted small">
+              <Run Text="{Binding Featured.DateText}" />
+              <Run Text="  ·  " />
+              <Run Text="{Binding Featured.SourcesText}" />
+            </TextBlock>
+            <TextBlock Classes="hero-legacy" Text="{Binding Featured.Title}" />
+            <TextBlock Classes="hero-ngen" Text="{Binding Featured.TitleUpper}" MaxLines="2" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="ngen-only" FontSize="14" FontWeight="SemiBold" Margin="0,-6,0,0"
+                       Foreground="{DynamicResource BiolumeBrush}" Text="{Binding Featured.SourcesText}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Classes="chip accent" IsVisible="{Binding Featured.HasVersion}"><TextBlock Text="{Binding Featured.VersionText}" /></Border>
+              <Border Classes="chip accent" IsVisible="{Binding Featured.HasDlc}"><TextBlock Text="{Binding Featured.DlcText}" /></Border>
+              <Border Classes="chip" IsVisible="{Binding Featured.HasSize}"><TextBlock Text="{Binding Featured.SizeText}" /></Border>
+            </StackPanel>
+            <TextBlock Classes="body" Text="{Binding Featured.ShortDescription}" MaxLines="2" TextTrimming="CharacterEllipsis" />
+            <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
+              <Border Classes="glow" IsVisible="{Binding !Featured.IsPlayable}">
+                <Button Classes="primary" Content="{Binding Featured.ActionLabel}" Command="{Binding Featured.PrimaryActionCommand}" />
+              </Border>
+              <Button Classes="brass" IsVisible="{Binding Featured.IsPlayable}"
+                      Content="{Binding Featured.ActionLabel}" Command="{Binding Featured.PrimaryActionCommand}" />
+              <Button Classes="quiet" Content="View store page" Command="{Binding Featured.OpenCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Coming soon: upcoming freeware and games (never demos) from the sites added on the Sources page. A tile opens the game's
+           coming-soon page (pops out over the window); the heart adds it to the wishlist. -->
+      <StackPanel Spacing="12" IsVisible="{Binding IsBrowsing}">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Classes="h2" FontSize="22" VerticalAlignment="Center" Text="Coming soon" />
+            <ProgressBar Classes="thin" Width="80" IsIndeterminate="True" VerticalAlignment="Center"
+                         IsVisible="{Binding Upcoming.IsRefreshing}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+            <Button Classes="link" Command="{Binding Upcoming.OpenWishlistCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Path Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Stroke="{DynamicResource CoralBrush}"
+                      StrokeThickness="1.8" Data="M12 20.5s-7.5-4.6-9.2-9.3C1.6 7.8 3.9 4.5 7.3 4.5c2 0 3.6 1.1 4.7 2.8 1.1-1.7 2.7-2.8 4.7-2.8 3.4 0 5.7 3.3 4.5 6.7-1.7 4.7-9.2 9.3-9.2 9.3Z" />
+                <TextBlock VerticalAlignment="Center" Text="{Binding Upcoming.WishlistButtonText}" />
+              </StackPanel>
+            </Button>
+            <Button Classes="link" Content="Refresh" Command="{Binding Upcoming.RefreshCommand}"
+                    IsVisible="{Binding Upcoming.HasSources}" ToolTip.Tip="Read your upcoming sites again" />
+            <Button Classes="link" Content="Upcoming sites" Command="{Binding Upcoming.OpenSourcesCommand}" IsVisible="{Binding IsAdvanced, Source={x:Static services:UiMode.Current}}" />
+          </StackPanel>
+        </Grid>
+
+        <TextBlock Classes="coral small" TextWrapping="Wrap" IsVisible="{Binding Upcoming.HasError}" Text="{Binding Upcoming.ErrorMessage}" />
+
+        <!-- No upcoming site yet -->
+        <Border Classes="panel" Padding="22" IsVisible="{Binding Upcoming.ShowSetup}">
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="4" VerticalAlignment="Center">
+              <TextBlock FontWeight="SemiBold" Text="See what's coming, and get told when it lands" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap"
+                         Text="Add a page that lists upcoming freeware or games (an itch.io or Steam &quot;coming soon&quot; list, or any site's upcoming page or RSS feed). Wishlist a game and SeaRaider lets you know the moment it shows up in your store." />
+            </StackPanel>
+            <Border Grid.Column="1" Classes="glow" Margin="16,0,0,0" VerticalAlignment="Center">
+              <Button Classes="primary" Content="Add an upcoming site" Command="{Binding Upcoming.OpenSourcesCommand}" />
+            </Border>
+          </Grid>
+        </Border>
+        <TextBlock Classes="muted small" TextWrapping="Wrap" IsVisible="{Binding Upcoming.ShowEmptyShelf}"
+                   Text="No upcoming games found yet. Check your upcoming sites on the Sources page, or Refresh." />
+
+        <!-- The shelf -->
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                      IsVisible="{Binding Upcoming.ShowShelf}">
+          <!-- Virtualized: only the tiles in view (plus a few) are created, however long the list. -->
+          <ItemsControl ItemsSource="{Binding Upcoming.Releases}" Margin="4,8,4,14">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:UpcomingCardViewModel">
+                <Button Classes="upcoming-tile" Width="300" Margin="0,0,16,0" Command="{Binding OpenCommand}" ToolTip.Tip="{Binding Title}">
+                  <Panel>
+                    <StackPanel>
+                      <views:AspectRatioBox Ratio="2.1395349">
+                        <Grid>
+                          <Border Background="{DynamicResource CoverPlaceholderBrush}">
+                            <TextBlock Text="{Binding Monogram}" FontSize="40" FontWeight="Bold" Foreground="{DynamicResource LineBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                          </Border>
+                          <views:FitImage IsVisible="{Binding HasImage}" Url="{Binding TileImageUrl}" />
+                          <Border Classes="chip" Background="{DynamicResource MediaChipBrush}" Margin="10" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                            <TextBlock Text="{Binding ReleaseText}" />
+                          </Border>
+                        </Grid>
+                      </views:AspectRatioBox>
+                      <StackPanel Margin="14,10,14,14" Spacing="3">
+                        <TextBlock Classes="h2" FontSize="16" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                    </StackPanel>
+                    <Button Classes="wish-heart" Classes.on="{Binding IsWishlisted}" Margin="10"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Command="{Binding ToggleWishlistCommand}" ToolTip.Tip="{Binding WishlistLabel}">
+                      <Path Data="M12 20.5s-7.5-4.6-9.2-9.3C1.6 7.8 3.9 4.5 7.3 4.5c2 0 3.6 1.1 4.7 2.8 1.1-1.7 2.7-2.8 4.7-2.8 3.4 0 5.7 3.3 4.5 6.7-1.7 4.7-9.2 9.3-9.2 9.3Z" />
+                    </Button>
+                  </Panel>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </StackPanel>
+
+      <!-- Just hid a card with its × -->
+      <Border Classes="verify-banner" IsVisible="{Binding HasUndo}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock VerticalAlignment="Center" Text="{Binding UndoText}" TextTrimming="CharacterEllipsis" />
+          <Button Grid.Column="1" Classes="link" Margin="16,0,0,0" Content="Undo" Command="{Binding UndoHideCommand}" />
+        </Grid>
+      </Border>
+
+      <!-- No sources yet -->
+      <Border Classes="panel" Padding="40" IsVisible="{Binding IsCatalogEmpty}">
+        <StackPanel Spacing="12" HorizontalAlignment="Left" MaxWidth="560">
+          <TextBlock Classes="h2" Text="Add a site to search" />
+          <TextBlock Classes="body muted"
+                     Text="Add the address of a game site. SeaRaider searches it live as you type and shows its newest uploads here; nothing has to be downloaded up front." />
+          <Button Classes="primary" HorizontalAlignment="Left" Margin="0,8,0,0"
+                  Content="Add a source" Command="{Binding AddSourceCommand}" />
+        </StackPanel>
+      </Border>
+
+      <TextBlock Classes="muted" IsVisible="{Binding IsNoResults}" TextWrapping="Wrap"
+                 Text="Nothing here yet. Try another search, or Refresh to ask your sources for their newest uploads." />
+
+      <!-- Card grid: ItemsRepeater + UniformGridLayout only creates the cards on screen. Every card fills its cell
+           exactly (the cells grow with the window, keeping their shape). -->
+      <ItemsRepeater ItemsSource="{Binding Games}">
+        <ItemsRepeater.Layout>
+          <UniformGridLayout MinItemWidth="290" MinItemHeight="380" MinColumnSpacing="20" MinRowSpacing="20"
+                             ItemsStretch="Uniform" />
+        </ItemsRepeater.Layout>
+        <ItemsRepeater.ItemTemplate>
+          <DataTemplate x:DataType="vm:GameCardViewModel">
+            <Border Classes="card" Classes.installed="{Binding IsPlayable}"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch" views:ChatDrag.Source="{Binding}">
+              <Border.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="Send to a friend…" Command="{Binding SendToFriendCommand}" />
+                </ContextMenu>
+              </Border.ContextMenu>
+              <Panel>
+              <DockPanel>
+                <!-- One-click action, pinned to the bottom of every card -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="16,8,16,16" Spacing="8">
+                  <ProgressBar Classes="thin" Value="{Binding Progress}" IsVisible="{Binding HasProgress}" />
+                  <ProgressBar Classes="thin" IsIndeterminate="True" IsVisible="{Binding IsWorking}" />
+                  <Button Classes="primary" HorizontalAlignment="Stretch"
+                          IsVisible="{Binding !IsPlayable}" IsEnabled="{Binding !IsWorking}"
+                          Content="{Binding ActionLabel}" Command="{Binding PrimaryActionCommand}" />
+                  <Button Classes="brass" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                          IsVisible="{Binding IsPlayable}"
+                          Content="{Binding ActionLabel}" Command="{Binding PrimaryActionCommand}" />
+                  <TextBlock Classes="small coral" TextWrapping="Wrap" MaxLines="3" IsVisible="{Binding HasError}"
+                             Text="{Binding ErrorMessage}" />
+                </StackPanel>
+
+                <!-- Art + text open the store page -->
+                <Button Classes="bare" Command="{Binding OpenCommand}" VerticalAlignment="Stretch">
+                  <DockPanel>
+                    <!-- Art at Steam's header shape (460×215), so headers fill it exactly; other art is fitted whole. -->
+                    <views:AspectRatioBox DockPanel.Dock="Top" Ratio="2.1395349">
+                    <Grid>
+                      <Border Background="{DynamicResource CoverPlaceholderBrush}">
+                        <TextBlock Text="{Binding Monogram}" FontSize="44" FontWeight="Bold"
+                                   Foreground="{DynamicResource LineBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <views:FitImage IsVisible="{Binding HasCover}" Url="{Binding CoverImageUrl}" />
+                      <Border Classes="chip owned" IsVisible="{Binding IsPlayable}"
+                              HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
+                        <TextBlock Text="In your library" />
+                      </Border>
+                      <Border Classes="chip" IsVisible="{Binding IsSetupReady}" Background="{DynamicResource MediaChipBrush}"
+                              HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10">
+                        <TextBlock Text="Downloaded, needs setup" />
+                      </Border>
+                      <!-- Same game on several sites: merged into this one card -->
+                      <Border Classes="chip" IsVisible="{Binding HasMultipleSources}" Background="{DynamicResource MediaChipBrush}"
+                              HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10,10,46,10"
+                              ToolTip.Tip="{Binding SourcesText}">
+                        <TextBlock Text="{Binding SourceCountText}" />
+                      </Border>
+                    </Grid>
+                    </views:AspectRatioBox>
+                    <StackPanel DockPanel.Dock="Top" Margin="16,12,16,0" Spacing="6">
+                      <TextBlock Classes="h2" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis">
+                        <Run Text="{Binding DateText}" />
+                        <Run Text="  ·  " />
+                        <Run Text="{Binding SourcesText}" Foreground="{StaticResource BiolumeBrush}" />
+                      </TextBlock>
+                    </StackPanel>
+                    <WrapPanel DockPanel.Dock="Bottom" Margin="16,6,16,0" Height="26" ClipToBounds="True">
+                        <Border Classes="chip" Margin="0,0,6,0" IsVisible="{Binding HasPrimaryTag}">
+                          <TextBlock Text="{Binding PrimaryTag}" />
+                        </Border>
+                        <Border Classes="chip" Margin="0,0,6,0" IsVisible="{Binding HasVersion}">
+                          <TextBlock Text="{Binding VersionText}" />
+                        </Border>
+                        <Border Classes="chip" Margin="0,0,6,0" IsVisible="{Binding HasDlc}">
+                          <TextBlock Text="{Binding DlcText}" />
+                        </Border>
+                        <Border Classes="chip" Margin="0,0,6,0" IsVisible="{Binding HasSize}">
+                          <TextBlock Text="{Binding SizeText}" />
+                        </Border>
+                    </WrapPanel>
+                    <!-- The description takes whatever height is left, so a bigger card shows more of it. -->
+                    <TextBlock Classes="muted card-desc" FontSize="13" LineHeight="19" Margin="16,6,16,0" MinHeight="19"
+                               Text="{Binding ShortDescription}" ClipToBounds="True"
+                               TextWrapping="Wrap" TextTrimming="CharacterEllipsis" />
+                  </DockPanel>
+                </Button>
+              </DockPanel>
+
+              <!-- × : hide this from the store (site news, or just not interested) -->
+              <Button Classes="card-hide" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10"
+                      IsVisible="{Binding CanHide}" Command="{Binding HideCommand}"
+                      ToolTip.Tip="Hide from the store (not a game, or not interested)">
+                <Path Data="M6 6 18 18 M18 6 6 18" />
+              </Button>
+              </Panel>
+            </Border>
+          </DataTemplate>
+        </ItemsRepeater.ItemTemplate>
+      </ItemsRepeater>
+
+      <Button Classes="quiet" HorizontalAlignment="Center" IsVisible="{Binding HasMore}"
+              Content="Load more" Command="{Binding LoadMoreCommand}" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

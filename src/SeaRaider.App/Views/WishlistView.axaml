@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:views="using:SeaRaider.App.Views"
+             x:Class="SeaRaider.App.Views.WishlistView"
+             x:DataType="vm:WishlistViewModel">
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="32,4,32,40" Spacing="20">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="2">
+          <TextBlock Classes="h1" Text="Wishlist" />
+          <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding Summary}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" IsVisible="{Binding !IsEmpty}">
+          <ProgressBar Classes="thin" Width="80" IsIndeterminate="True" VerticalAlignment="Center" IsVisible="{Binding IsChecking}" />
+          <Button Classes="quiet" Content="Check the store now" Command="{Binding CheckNowCommand}"
+                  ToolTip.Tip="Search your download sites for every game still waiting" />
+        </StackPanel>
+      </Grid>
+
+      <Border Classes="error-banner" IsVisible="{Binding HasError}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+          <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+        </Grid>
+      </Border>
+
+      <Border Classes="panel" Padding="40" IsVisible="{Binding IsEmpty}">
+        <StackPanel Spacing="10" MaxWidth="560" HorizontalAlignment="Left">
+          <TextBlock Classes="h2" Text="Your wishlist is empty" />
+          <TextBlock Classes="body muted" TextWrapping="Wrap"
+                     Text="Find a game under Coming soon in the Store and press its heart (or Add to wishlist on its page). SeaRaider keeps an eye on your download sites and tells you the moment it can be downloaded." />
+          <Button Classes="primary" HorizontalAlignment="Left" Margin="0,8,0,0" Content="Browse coming soon"
+                  Command="{Binding BrowseComingSoonCommand}" />
+        </StackPanel>
+      </Border>
+
+      <ItemsControl ItemsSource="{Binding Items}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:WishlistRowViewModel">
+            <Border Classes="panel" Padding="0" Margin="0,0,0,12" ClipToBounds="True">
+              <Grid ColumnDefinitions="220,*,Auto">
+                <views:AspectRatioBox Ratio="2.1395349" VerticalAlignment="Center">
+                  <Grid>
+                    <Border Background="{DynamicResource CoverPlaceholderBrush}">
+                      <TextBlock Text="{Binding Monogram}" FontSize="32" FontWeight="Bold" Foreground="{DynamicResource LineBrush}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <views:FitImage IsVisible="{Binding HasImage}" Url="{Binding ImageUrl}" />
+                  </Grid>
+                </views:AspectRatioBox>
+
+                <StackPanel Grid.Column="1" Margin="22,14" VerticalAlignment="Center" Spacing="6">
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Classes="h2" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                    <Border Classes="chip owned" VerticalAlignment="Center" IsVisible="{Binding IsAvailable}">
+                      <TextBlock Text="Available now" />
+                    </Border>
+                    <Border Classes="chip" VerticalAlignment="Center" IsVisible="{Binding IsWaiting}">
+                      <TextBlock Text="Waiting" />
+                    </Border>
+                  </StackPanel>
+                  <TextBlock Classes="muted small" Text="{Binding StatusText}" TextWrapping="Wrap" />
+                  <Button Classes="link" FontSize="12" HorizontalAlignment="Left" Content="Open the game's page"
+                          IsVisible="{Binding HasPage}" Command="{Binding OpenPageCommand}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10" Margin="0,0,22,0" VerticalAlignment="Center">
+                  <Button Classes="quiet" Content="Remove" Command="{Binding RemoveCommand}" />
+                  <Border Classes="glow" IsVisible="{Binding IsAvailable}">
+                    <Button Classes="primary" MinWidth="130" Content="View in store" Command="{Binding ViewInStoreCommand}" />
+                  </Border>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

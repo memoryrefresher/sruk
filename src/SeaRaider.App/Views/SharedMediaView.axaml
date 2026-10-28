@@ -1,0 +1,190 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:views="using:SeaRaider.App.Views"
+             x:Class="SeaRaider.App.Views.SharedMediaView"
+             x:DataType="vm:SharedMediaViewModel">
+
+  <StackPanel Spacing="18">
+
+    <Border Classes="error-banner" IsVisible="{Binding HasError}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+        <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+      </Grid>
+    </Border>
+
+    <!-- Share something -->
+    <Border Classes="panel" Padding="20">
+      <StackPanel Spacing="10">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <TextBox Text="{Binding ShareUrl}" FontSize="15" KeyDown="OnShareKeyDown"
+                   Watermark="Paste a YouTube, Twitch or Vimeo link, a video file, or any page" />
+          <TextBox Grid.Column="1" Width="130" Margin="10,0,0,0" Text="{Binding ShareStart}" KeyDown="OnShareKeyDown"
+                   Watermark="Start at 1:23" ToolTip.Tip="Optional: where the video starts for your friends (1:23 or 1:02:03)" />
+          <Border Grid.Column="2" Classes="glow" Margin="12,0,0,0">
+            <Button Classes="primary" Content="Share" Command="{Binding ShareCommand}" IsEnabled="{Binding !IsSharing}" />
+          </Border>
+        </Grid>
+        <TextBox Text="{Binding ShareNote}" MaxLength="{Binding MaxNoteLength}" KeyDown="OnShareKeyDown"
+                 Watermark="Say something about it (optional)" />
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsSharing}">
+            <ProgressBar Classes="thin" Width="90" IsIndeterminate="True" VerticalAlignment="Center" />
+            <TextBlock Classes="muted small" Text="Getting the title and picture…" />
+          </StackPanel>
+          <TextBlock Classes="muted small" IsVisible="{Binding !IsSharing}" Text="{Binding AudienceText}" />
+        </Grid>
+        <Border Classes="share-hint" IsVisible="{Binding HasHint}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="small" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding Hint}" />
+            <Button Grid.Column="1" Classes="link" FontSize="12" Margin="12,0,0,0" Content="Friends settings"
+                    IsVisible="{Binding CanOpenFriendsSettings}" Command="{Binding OpenFriendsSettingsCommand}" />
+          </Grid>
+        </Border>
+      </StackPanel>
+    </Border>
+
+    <!-- Nothing yet -->
+    <Border Classes="panel" Padding="40" IsVisible="{Binding IsEmpty}">
+      <StackPanel Spacing="10" MaxWidth="620" HorizontalAlignment="Left">
+        <TextBlock Classes="h2" Text="Nothing shared yet" />
+        <TextBlock Classes="body muted" TextWrapping="Wrap"
+                   Text="Share a trailer, a clip or a stream (from a time if you like) and it shows up here and on your friends' Media tab. Everyone can react and comment, and times in comments, like 2:15, jump the video straight there. You can also share any box on the Channels side with its share button." />
+      </StackPanel>
+    </Border>
+
+    <!-- The feed -->
+    <ItemsControl ItemsSource="{Binding Posts}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:SharedPostViewModel">
+          <Border Classes="share-post" Margin="0,0,0,16">
+            <StackPanel Spacing="14">
+
+              <Grid ColumnDefinitions="300,*">
+                <!-- The video: click to play (from the shared time) -->
+                <Button Classes="media-tile share-thumb" VerticalAlignment="Top" Command="{Binding PlayCommand}"
+                        ToolTip.Tip="Play">
+                  <views:AspectRatioBox Ratio="1.7777778">
+                    <Grid>
+                      <Border Background="{DynamicResource CoverPlaceholderBrush}">
+                        <TextBlock Text="{Binding TitleMonogram}" FontSize="30" FontWeight="Bold" Foreground="{DynamicResource LineBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <views:FitImage AlwaysFill="True" IsVisible="{Binding HasThumbnail}" Url="{Binding ThumbnailUrl}" />
+                      <Border Classes="media-play" Width="50" Height="50" CornerRadius="25"
+                              HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Path Width="16" Height="18" Margin="4,0,0,0" Stretch="Uniform" Fill="#F2FFFFFF" Data="M0 0 L12 7 L0 14 Z" />
+                      </Border>
+                      <Border Classes="time-badge" IsVisible="{Binding HasStart}" Margin="8"
+                              HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                        <TextBlock Text="{Binding StartText}" />
+                      </Border>
+                    </Grid>
+                  </views:AspectRatioBox>
+                </Button>
+
+                <!-- Who, what, why -->
+                <StackPanel Grid.Column="1" Margin="18,0,0,0" Spacing="8">
+                  <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Border Classes="avatar" Width="32" Height="32" CornerRadius="16" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding AuthorMonogram}" FontSize="12" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                      <TextBlock FontWeight="SemiBold" Text="{Binding AuthorName}" />
+                      <TextBlock Classes="muted small" TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Top">
+                      <Button Classes="link" FontSize="12" Content="Open link" Command="{Binding OpenLinkCommand}"
+                              ToolTip.Tip="Open it in your browser" />
+                      <Button Classes="link" FontSize="12" Content="Copy link" Command="{Binding CopyLinkCommand}" />
+                      <Button Classes="link" FontSize="12" Content="{Binding RemoveText}" Command="{Binding RemoveCommand}"
+                              ToolTip.Tip="{Binding RemoveTip}" />
+                    </StackPanel>
+                  </Grid>
+
+                  <Button Classes="share-title" Command="{Binding PlayCommand}" HorizontalAlignment="Left">
+                    <TextBlock FontSize="17" FontWeight="SemiBold" LineHeight="23" TextWrapping="Wrap" MaxLines="2"
+                               TextTrimming="CharacterEllipsis" Text="{Binding Title}" />
+                  </Button>
+                  <TextBlock Classes="body" TextWrapping="Wrap" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
+
+                  <!-- Reactions -->
+                  <ItemsControl ItemsSource="{Binding Reactions}" Margin="0,4,0,0">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ReactionChipViewModel">
+                        <Button Classes="react-chip" Classes.mine="{Binding IsMine}" Margin="0,0,6,6"
+                                Command="{Binding ToggleCommand}" ToolTip.Tip="{Binding Tip}">
+                          <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="{Binding Emoji}" FontSize="15" VerticalAlignment="Center" />
+                            <TextBlock Classes="react-count" IsVisible="{Binding HasCount}" Text="{Binding CountText}"
+                                       VerticalAlignment="Center" />
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </Grid>
+
+              <!-- Comments -->
+              <StackPanel Spacing="10">
+                <Button Classes="link" FontSize="12" HorizontalAlignment="Left" IsVisible="{Binding CanExpand}"
+                        Content="{Binding ExpandText}" Command="{Binding ToggleCommentsCommand}" />
+                <ItemsControl ItemsSource="{Binding Comments}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SharedCommentViewModel">
+                      <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+                        <Border Classes="avatar" Width="28" Height="28" CornerRadius="14" VerticalAlignment="Top">
+                          <TextBlock Text="{Binding Monogram}" FontSize="11" />
+                        </Border>
+                        <Border Grid.Column="1" Classes="comment-bubble" Margin="10,0,0,0" HorizontalAlignment="Left">
+                          <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                              <TextBlock FontWeight="SemiBold" FontSize="13" Text="{Binding AuthorName}" />
+                              <TextBlock Classes="muted small" VerticalAlignment="Center" Text="{Binding Age}" />
+                              <Button Classes="link" FontSize="11" Padding="0" Content="Delete" VerticalAlignment="Center"
+                                      IsVisible="{Binding CanDelete}" Command="{Binding DeleteCommand}" />
+                            </StackPanel>
+                            <SelectableTextBlock FontSize="13" TextWrapping="Wrap" Text="{Binding Text}" />
+                            <ItemsControl ItemsSource="{Binding Times}" IsVisible="{Binding HasTimes}">
+                              <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                              </ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TimeChipViewModel">
+                                  <Button Classes="time-chip" Margin="0,2,6,0" Command="{Binding PlayCommand}"
+                                          ToolTip.Tip="Play from here">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                      <Path Width="7" Height="8" Stretch="Uniform" Fill="{DynamicResource BiolumeBrush}" Data="M0 0 L12 7 L0 14 Z"
+                                            VerticalAlignment="Center" />
+                                      <TextBlock Text="{Binding Label}" />
+                                    </StackPanel>
+                                  </Button>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </StackPanel>
+                        </Border>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBox Text="{Binding CommentText}" Watermark="{Binding CommentWatermark}" MaxLength="500"
+                           KeyDown="OnCommentKeyDown" />
+                  <Button Grid.Column="1" Classes="quiet" Margin="10,0,0,0" Content="Comment"
+                          Command="{Binding PostCommentCommand}" IsEnabled="{Binding !IsSending}" />
+                </Grid>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+  </StackPanel>
+</UserControl>

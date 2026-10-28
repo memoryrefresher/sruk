@@ -1,0 +1,43 @@
+<Project>
+  <!-- Shared settings for every project in the solution. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Company>SeaRaider</Company>
+    <Product>SeaRaider</Product>
+    <Version>0.10.0</Version>
+    <!-- Central Package Management: versions live in Directory.Packages.props -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      Friends relay every user of this build connects to out of the box (SeaRaider.Relay, see README › Friends).
+      Leave empty to ship without one; set it here or with  dotnet publish -p:SeaRaiderDefaultRelay=wss://relay.example.com/ws
+    -->
+    <SeaRaiderDefaultRelay Condition="'$(SeaRaiderDefaultRelay)' == ''">wss://searaider-relay.onrender.com/ws</SeaRaiderDefaultRelay>
+	<!--
+      The Discord application every copy shows up as ("Playing SeaRaider"): its Application ID from discord.com/developers.
+      It isn't a secret (it's in everyone's status anyway). Settings › Friends › Discord can still use another one.
+    -->
+    <SeaRaiderDiscordAppId Condition="'$(SeaRaiderDiscordAppId)' == ''">1563092348748177519</SeaRaiderDiscordAppId>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      Updates (README › Updates). Every build checks SeaRaiderUpdateFeed for a newer version and installs it only when the
+      release file is signed with the private key that belongs to SeaRaiderUpdatePublicKey.
+        1. Once:  .\scripts\release.ps1 -NewKey   (makes the signing key, prints the public key; keep the .pem secret)
+        2. Paste the public key below, and the address where you'll publish latest.json, e.g. a GitHub repo's
+           https://github.com/OWNER/REPO/releases/latest/download/latest.json
+        3. Each release:  .\scripts\release.ps1 -Version 0.11.0 -Repo OWNER/REPO
+      Leave either empty to ship a build that doesn't update itself.
+    -->
+    <SeaRaiderUpdateFeed Condition="'$(SeaRaiderUpdateFeed)' == ''">https://github.com/memoryrefresher/sruk/releases/latest/download/latest.json</SeaRaiderUpdateFeed>
+    <SeaRaiderUpdatePublicKey Condition="'$(SeaRaiderUpdatePublicKey)' == ''">MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkpe3dEnMXxoq4Gm8wAUjgVY2VosO1sVJ+5skkefawhrbkqguTviGodtijU5DZrNYs+6FsXDcaG1fd0nWs7iVLA==</SeaRaiderUpdatePublicKey>
+    <!-- The version the updater compares is <Version> above: keep the build's own version clean (no "+commit"). -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>

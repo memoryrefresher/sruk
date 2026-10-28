@@ -1,0 +1,328 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:sys="using:System"
+             xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             xmlns:views="using:SeaRaider.App.Views"
+             x:Class="SeaRaider.App.Views.GameDetailView"
+             x:DataType="vm:GameDetailViewModel">
+
+  <UserControl.Resources>
+    <!-- One download option: name, kind tag, size, and what to expect. -->
+    <DataTemplate x:Key="MirrorRow" x:DataType="vm:MirrorOptionViewModel">
+      <Button Classes="mirror-option" Classes.selected="{Binding IsSelected}" Command="{Binding SelectCommand}" Margin="0,0,0,4">
+        <StackPanel Spacing="3">
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBlock FontWeight="SemiBold" FontSize="13" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Grid.Column="1" Classes="muted small" Margin="8,0,0,0" Text="{Binding SizeText}" IsVisible="{Binding HasSize}" />
+            <Button Grid.Column="2" Classes="link" FontSize="11" Padding="6,0" Margin="6,0,0,0" Content="Hide"
+                    IsVisible="{Binding CanHide}" Command="{Binding HideCommand}"
+                    ToolTip.Tip="This one doesn't work: hide it (SeaRaider won't use it, not even on Automatic)" />
+          </Grid>
+          <Border Classes="tag" HorizontalAlignment="Left">
+            <TextBlock Text="{Binding Tag}" />
+          </Border>
+          <TextBlock Classes="muted small" TextWrapping="Wrap" FontSize="11" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
+        </StackPanel>
+      </Button>
+    </DataTemplate>
+  </UserControl.Resources>
+
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <Panel>
+      <!-- Atmosphere: the cover, blurred and faded, behind the top of the page. -->
+      <Grid Height="520" VerticalAlignment="Top" ClipToBounds="True" IsHitTestVisible="False">
+        <!-- Pre-softened, not a live blur: this sits behind a scrolling page. -->
+        <views:SoftImage Opacity="0.45" Url="{Binding HeroImageUrl}" />
+        <Border Background="{DynamicResource HeroScrimBrush}" />
+      </Grid>
+
+      <StackPanel Margin="32,12,32,48" Spacing="24">
+        <Border Classes="error-banner" IsVisible="{Binding HasError}">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+            <Button Grid.Column="1" Classes="link" Content="Dismiss" Command="{Binding DismissErrorCommand}" />
+          </Grid>
+        </Border>
+
+        <!-- Title block: clean title, the release name as published, genres. -->
+        <StackPanel Spacing="10">
+          <TextBlock Classes="display" FontSize="44" LineHeight="50" Text="{Binding Title}" />
+          <TextBlock Classes="muted small" IsVisible="{Binding HasRawTitle}" Text="{Binding RawTitle}" TextWrapping="Wrap" />
+          <ItemsControl ItemsSource="{Binding Genres}" IsVisible="{Binding HasGenres}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="sys:String">
+                <Button Classes="bare" Margin="0,0,6,6" Cursor="Hand" HorizontalAlignment="Left"
+                        Command="{Binding $parent[ItemsControl].((vm:GameDetailViewModel)DataContext).SearchTagCommand}"
+                        CommandParameter="{Binding}"
+                        ToolTip.Tip="Find other games with this tag">
+                  <Border Classes="chip">
+                    <TextBlock Text="{Binding}" />
+                  </Border>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <!-- Lazy loading state -->
+          <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsLoadingDetails}">
+            <ProgressBar Classes="thin" Width="120" IsIndeterminate="True" VerticalAlignment="Center" />
+            <TextBlock Classes="muted small" VerticalAlignment="Center" Text="Loading the full page…" />
+          </StackPanel>
+          <Border Classes="error-banner" IsVisible="{Binding HasDetailsError}">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Text="{Binding DetailsError}" TextWrapping="Wrap" Foreground="{DynamicResource CoralBrush}" />
+              <Button Grid.Column="1" Classes="link" Content="Try again" Command="{Binding ReloadDetailsCommand}" />
+            </Grid>
+          </Border>
+        </StackPanel>
+
+        <!-- Structured info pills: each fact on its own, only when the page had it. -->
+        <ItemsControl ItemsSource="{Binding InfoPills}" IsVisible="{Binding HasInfoPills}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:InfoPill">
+              <Border Classes="pill" Margin="0,0,10,10">
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="pill-label" Text="{Binding Label}" />
+                  <TextBlock Classes="pill-value" Text="{Binding Value}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Grid ColumnDefinitions="*,28,340">
+
+          <!-- Left: media + description ======================================================= -->
+          <StackPanel Spacing="14">
+            <!-- 16:9 like the screenshots and trailer stills, so they fill the frame exactly. -->
+            <views:AspectRatioBox Ratio="1.7777778" IsVisible="{Binding HasMedia}">
+            <Border CornerRadius="10" ClipToBounds="True" Background="{DynamicResource CoverPlaceholderBrush}">
+              <Grid>
+                <views:FitImage Url="{Binding SelectedMedia.ImageUrl}" />
+                <!-- Trailers play in SeaRaider's own player, in an overlay over the blurred window. -->
+                <Border IsVisible="{Binding SelectedIsVideo}" Background="#66071420">
+                  <Border Classes="glow" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Button Classes="primary" Command="{Binding PlayTrailerCommand}" Padding="24,14">
+                      <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Path Data="M0 0 L12 7 L0 14 Z" Fill="{DynamicResource AbyssBrush}" Width="12" Height="14" VerticalAlignment="Center" />
+                        <TextBlock Text="Watch trailer" VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                  </Border>
+                </Border>
+              </Grid>
+            </Border>
+            </views:AspectRatioBox>
+
+            <ListBox Classes="thumbs" ItemsSource="{Binding Media}" SelectedItem="{Binding SelectedMedia}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     IsVisible="{Binding HasMedia}">
+              <ListBox.Resources>
+                <!-- Slim scroll bar for this strip only (the Fluent template sizes the bar from this resource). -->
+                <x:Double x:Key="ScrollBarSize">6</x:Double>
+              </ListBox.Resources>
+              <ListBox.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ListBox.ItemsPanel>
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:MediaItemViewModel">
+                  <Border Classes="thumb-frame" Width="140" Height="80" CornerRadius="6" ClipToBounds="True"
+                          BorderThickness="2" BorderBrush="Transparent" Background="{DynamicResource HullBrush}">
+                    <Grid>
+                      <views:FitImage Url="{Binding ImageUrl}" />
+                      <Border IsVisible="{Binding IsVideo}" Classes="chip" Margin="6"
+                              HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="{DynamicResource MediaChipBrush}">
+                        <TextBlock Text="Trailer" />
+                      </Border>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+
+            <TextBlock Classes="muted small" IsVisible="{Binding HasMediaSource}" Text="{Binding MediaSourceText}" />
+
+            <StackPanel Spacing="10" Margin="0,14,0,0">
+              <TextBlock Classes="h2" Text="About this game" />
+              <SelectableTextBlock Classes="body" FontSize="14" LineHeight="23" TextWrapping="Wrap" MaxWidth="760"
+                                   HorizontalAlignment="Left"
+                                   Foreground="{DynamicResource FoamBrush}" Text="{Binding Description}" />
+            </StackPanel>
+          </StackPanel>
+
+          <!-- Right: purchase-style panel ======================================================= -->
+          <Border Grid.Column="2" Classes="panel" Padding="0" VerticalAlignment="Top" ClipToBounds="True">
+            <StackPanel>
+              <Border Height="176" Background="{DynamicResource CoverPlaceholderBrush}">
+                <Image Stretch="UniformToFill" img:ImageLoader.Source="{Binding CoverImageUrl}" />
+              </Border>
+
+              <StackPanel Margin="22" Spacing="16">
+                <TextBlock Classes="muted" FontSize="13" LineHeight="20" TextWrapping="Wrap"
+                           Text="{Binding ShortDescription}" />
+
+                <!-- Supported languages (the other facts are the info pills above). -->
+                <StackPanel Spacing="6" IsVisible="{Binding HasLanguages}">
+                  <TextBlock Classes="muted small" Text="Languages" />
+                  <ItemsControl ItemsSource="{Binding Languages}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="sys:String">
+                        <Border Classes="chip" Margin="0,0,6,6">
+                          <TextBlock Text="{Binding}" />
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+
+                <!-- Sites that have this game (merged duplicates): one tab each -->
+                <StackPanel Spacing="8" IsVisible="{Binding HasSourceTabs}">
+                  <TextBlock Classes="muted small" Text="Available from" />
+                  <ItemsControl ItemsSource="{Binding SourceTabs}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:SourceTabViewModel">
+                        <Button Classes="source-tab" Classes.selected="{Binding IsSelected}" Margin="0,0,6,6"
+                                Command="{Binding SelectCommand}">
+                          <StackPanel Spacing="1">
+                            <TextBlock Classes="source-name" Text="{Binding Name}" />
+                            <TextBlock Classes="source-detail" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" />
+                          </StackPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+
+                <!-- Download sources: FuckingFast, then FileKeeper, come first (when the page has them); everything else
+                     is folded into one drop-down, grouped by kind. -->
+                <Border Classes="options-card" IsVisible="{Binding CanChooseSource}">
+                <!-- Just the drop-down: every host, archive and torrent is inside it (the chosen one is highlighted). -->
+                <StackPanel Spacing="8">
+                  <ToggleButton Classes="disclosure header" IsChecked="{Binding OptionsOpen}" IsVisible="{Binding HasMoreOptions}">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Classes="disclosure-title" VerticalAlignment="Center" Text="{Binding MoreOptionsText}" />
+                      <Path Grid.Column="1" Classes="chevron" Margin="12,0,0,0" Data="M4 6 L8 10 L12 6" />
+                    </Grid>
+                  </ToggleButton>
+                  <StackPanel Spacing="4" IsVisible="{Binding OptionsOpen}">
+                    <ItemsControl ItemsSource="{Binding MirrorSections}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MirrorSectionViewModel">
+                          <StackPanel Spacing="4" Margin="0,6,0,0">
+                            <TextBlock Classes="section-title" Text="{Binding Title}" />
+                            <ItemsControl ItemsSource="{Binding Options}" ItemTemplate="{StaticResource MirrorRow}" />
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Button Classes="link" FontSize="12" HorizontalAlignment="Left" Margin="0,4,0,0"
+                            Content="{Binding HiddenOptionsText}" IsVisible="{Binding HasHiddenOptions}"
+                            Command="{Binding ShowHiddenOptionsCommand}" />
+                  </StackPanel>
+                </StackPanel>
+                </Border>
+
+                <!-- The one-click button -->
+                <Border Classes="glow" IsVisible="{Binding !IsPlayable}">
+                  <Button Classes="primary" HorizontalAlignment="Stretch" FontSize="16" Padding="20,14"
+                          IsEnabled="{Binding IsActionEnabled}"
+                          Content="{Binding ActionLabel}" Command="{Binding PrimaryActionCommand}" />
+                </Border>
+                <Button Classes="brass" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        FontSize="16" Padding="20,14" IsVisible="{Binding IsPlayable}"
+                        Content="{Binding ActionLabel}" Command="{Binding PrimaryActionCommand}" />
+
+                <StackPanel Spacing="6" IsVisible="{Binding HasProgress}">
+                  <ProgressBar Value="{Binding Progress}" />
+                </StackPanel>
+
+                <!-- Finished torrent still being shared -->
+                <Border Classes="setup-status" HorizontalAlignment="Stretch" IsVisible="{Binding IsSeeding}">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="small brass" TextWrapping="Wrap" VerticalAlignment="Center" Text="{Binding SeedText}" />
+                    <Button Grid.Column="1" Classes="quiet" Margin="10,0,0,0" Padding="12,6" Content="Stop seeding"
+                            Command="{Binding StopSeedingCommand}" />
+                  </Grid>
+                </Border>
+                <StackPanel Spacing="2">
+                  <TextBlock Classes="small" TextWrapping="Wrap" Text="{Binding StatusLine}" />
+                  <TextBlock Classes="muted small" Text="{Binding SpeedText}" />
+                </StackPanel>
+
+                <Button Classes="link" HorizontalAlignment="Left" Content="Open the source page"
+                        Command="{Binding OpenSourcePageCommand}" />
+
+                <!-- Share: sends this page to a friend's chat as a card with "Open in store". -->
+                <Button Classes="quiet" HorizontalAlignment="Left" IsVisible="{Binding CanShare}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Path Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Stroke="{DynamicResource FoamBrush}"
+                          StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                          Data="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7 M16 6l-4-4-4 4 M12 2v13" />
+                    <TextBlock VerticalAlignment="Center" Text="Share or invite a friend" />
+                  </StackPanel>
+                  <Button.Flyout>
+                    <Flyout Placement="TopEdgeAlignedLeft">
+                      <StackPanel Width="270" Spacing="8">
+                        <TextBlock FontWeight="SemiBold" Text="Send this game to a friend, or invite them to play" />
+                        <TextBlock Classes="muted small" TextWrapping="Wrap" IsVisible="{Binding HasNoShareTargets}"
+                                   Text="No friends yet. Add someone with their friend code in the Friends panel (Ctrl+Shift+F)." />
+                        <ItemsControl ItemsSource="{Binding ShareTargets}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ShareTargetViewModel">
+                              <Border Classes="friend-pick" Margin="0,0,0,4">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                  <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,10,0"
+                                           Fill="{DynamicResource BiolumeBrush}" IsVisible="{Binding IsOnline}" />
+                                  <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,10,0"
+                                           Fill="{DynamicResource LineBrush}" IsVisible="{Binding !IsOnline}" />
+                                  <StackPanel Grid.Column="1" Spacing="1">
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Classes="muted small" Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+                                  </StackPanel>
+                                  <Button Grid.Column="2" Classes="link" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center"
+                                          Content="Share" Command="{Binding ShareCommand}" ToolTip.Tip="Send this store page to their chat" />
+                                  <Button Grid.Column="3" Classes="link" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Center"
+                                          Content="Invite" Command="{Binding InviteCommand}" ToolTip.Tip="Invite them to play this with you" />
+                                </Grid>
+                              </Border>
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </StackPanel>
+                    </Flyout>
+                  </Button.Flyout>
+                </Button>
+                <TextBlock Classes="small brass" TextWrapping="Wrap" IsVisible="{Binding HasShareStatus}" Text="{Binding ShareStatus}" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding FetchedText}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </StackPanel>
+    </Panel>
+  </ScrollViewer>
+</UserControl>

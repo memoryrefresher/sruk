@@ -1,0 +1,125 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:SeaRaider.App.ViewModels"
+             xmlns:sys="using:System"
+             xmlns:img="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="SeaRaider.App.Views.InstallOptionsDialog"
+             x:DataType="vm:InstallOptionsDialogViewModel">
+
+  <!-- Pre-download dialog: folder name, file names, and what to do if the download is a setup program. -->
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Header -->
+    <Grid ColumnDefinitions="Auto,*" Margin="24,22,24,12">
+      <Border Width="112" Height="63" CornerRadius="6" ClipToBounds="True" VerticalAlignment="Top"
+              Background="{DynamicResource CoverPlaceholderBrush}">
+        <Image Stretch="UniformToFill" img:ImageLoader.Source="{Binding CoverImageUrl}" />
+      </Border>
+      <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="4">
+        <TextBlock Classes="h2" Text="{Binding DialogTitle}" TextWrapping="Wrap" />
+        <TextBlock Classes="muted small" Text="{Binding SourceText}" TextWrapping="Wrap" />
+      </StackPanel>
+    </Grid>
+
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="24,8,24,16" Spacing="22">
+
+        <!-- What happens, in plain words -->
+        <Border Classes="pill" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="6">
+            <TextBlock FontWeight="SemiBold" Text="SeaRaider takes care of everything:" />
+            <TextBlock Classes="small" TextWrapping="Wrap" Text="1.  Downloads the game (all its parts, from the best source)." />
+            <TextBlock Classes="small" TextWrapping="Wrap" Text="2.  Unpacks it and deletes the downloaded archives." />
+            <TextBlock Classes="small" TextWrapping="Wrap" Text="3.  Sets the game up, and it appears in your Library, ready to play." />
+          </StackPanel>
+        </Border>
+
+        <!-- Disk space: what the download, unpacking and setup need at the busiest moment -->
+        <StackPanel Spacing="6" IsVisible="{Binding HasSpaceNote}">
+          <TextBlock Classes="muted small" TextWrapping="Wrap" Text="{Binding SpaceNote}" />
+          <TextBlock Classes="coral small" TextWrapping="Wrap" Text="{Binding SpaceWarning}" IsVisible="{Binding HasSpaceWarning}" />
+        </StackPanel>
+
+        <!-- Install folder -->
+        <StackPanel Spacing="6">
+          <TextBlock FontWeight="SemiBold" Text="Game folder name" />
+          <TextBox Text="{Binding FolderName}" Watermark="Folder name" />
+          <TextBlock Classes="muted small" Text="{Binding FolderPath}" TextWrapping="Wrap" />
+          <TextBlock Classes="brass small" Text="{Binding FolderNote}" TextWrapping="Wrap"
+                     IsVisible="{Binding FolderNote, Converter={x:Static ObjectConverters.IsNotNull}}" />
+        </StackPanel>
+
+        <Border Classes="options-card">
+        <StackPanel>
+          <ToggleButton Classes="disclosure header" IsChecked="{Binding AdvancedOpen}">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="2">
+                <TextBlock Classes="disclosure-title" Text="Advanced options" />
+                <TextBlock Classes="muted small" Text="File names, launch file and setup program switches. The defaults are fine for almost every game." />
+              </StackPanel>
+              <Path Grid.Column="1" Classes="chevron" Margin="12,0,0,0" Data="M4 6 L8 10 L12 6" />
+            </Grid>
+          </ToggleButton>
+          <StackPanel Spacing="22" Margin="0,16,0,0" IsVisible="{Binding AdvancedOpen}">
+            <!-- File names (direct downloads only) -->
+            <StackPanel Spacing="6" IsVisible="{Binding CanRenameFiles}">
+              <TextBlock FontWeight="SemiBold" Text="Save downloaded files as" />
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBox Text="{Binding FileBaseName}" Watermark="File name" />
+                <TextBlock Grid.Column="1" Classes="muted" Margin="10,0,0,0" VerticalAlignment="Center"
+                           Text="{Binding FileSuffix}" />
+              </Grid>
+              <TextBlock Classes="coral small" Text="{Binding FileNameError}" TextWrapping="Wrap"
+                         IsVisible="{Binding FileNameError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <ItemsControl ItemsSource="{Binding ResultingFileNames}" Margin="0,2,0,0">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="sys:String">
+                    <TextBlock Classes="muted small" Text="{Binding}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="muted small" Text="{Binding MoreFilesText}"
+                         IsVisible="{Binding MoreFilesText, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+
+            <!-- Launch file -->
+            <StackPanel Spacing="6">
+              <TextBlock FontWeight="SemiBold" Text="Start the game with (optional)" />
+              <TextBox Text="{Binding LaunchFileName}" Watermark="e.g. start.bat or bin\Game.exe" />
+              <TextBlock Classes="muted small" TextWrapping="Wrap"
+                         Text="An .exe or .bat file inside the game's folder. SeaRaider looks for it after the game is installed; leave this empty to detect the game's program automatically. You can also change it later in the Library." />
+            </StackPanel>
+
+            <!-- Installer handling -->
+            <StackPanel Spacing="8">
+              <TextBlock FontWeight="SemiBold" Text="If the download is a setup program" />
+              <CheckBox IsChecked="{Binding SilentInstall}"
+                        Content="Install silently into the folder above (Inno Setup, NSIS, MSI and similar)" />
+              <CheckBox IsChecked="{Binding RunInstallerWhenReady}"
+                        Content="Start the installer as soon as the download is ready" />
+              <CheckBox IsChecked="{Binding ShowInstallerOptions}" Content="Use custom installer arguments" />
+              <StackPanel Spacing="4" IsVisible="{Binding ShowInstallerOptions}">
+                <TextBox Text="{Binding CustomInstallerArguments}" Watermark="/VERYSILENT /DIR=&quot;{dir}&quot;" />
+                <TextBlock Classes="muted small" TextWrapping="Wrap"
+                           Text="{}{dir} is replaced by the install folder. These replace the switches SeaRaider would use." />
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Footer -->
+    <Border Grid.Row="2" Background="{DynamicResource RailBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="24,14">
+        <Button Classes="link" VerticalAlignment="Center" Content="Reset names" Command="{Binding ResetNamesCommand}" />
+        <Button Grid.Column="2" Classes="quiet" Margin="0,0,10,0" Content="Cancel" IsCancel="True"
+                Command="{Binding CancelCommand}" />
+        <Border Grid.Column="3" Classes="glow">
+          <Button Classes="primary" Content="Download &amp; Install" IsDefault="True" Command="{Binding ConfirmCommand}" />
+        </Border>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

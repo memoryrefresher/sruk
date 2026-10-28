@@ -1,0 +1,250 @@
+<!--
+  Skin: "Hallow's Eve" (a seasonal skin).
+  Built on "The Next Generation" (SkinService loads NextGeneration.axaml first, then this file on top): the same glass
+  and layout, re-lit for October. Midnight plum instead of deep sea, pumpkin orange for what you act on, candle gold for
+  what you own, bone white text. One quiet touch of the season: a pale moon and a few far-off bats in the backdrop.
+  Nothing moves and nothing is in the way.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Styles.Resources>
+    <!-- Palette (same keys as the other skins) ================================================== -->
+    <SolidColorBrush x:Key="AbyssBrush" Color="#0A0710" />
+    <SolidColorBrush x:Key="RailBrush" Color="#B30C0812" />
+    <SolidColorBrush x:Key="HullBrush" Color="#99171022" />
+    <SolidColorBrush x:Key="DeckBrush" Color="#B3241A31" />
+    <SolidColorBrush x:Key="LineBrush" Color="#4D9C7BC2" />
+    <SolidColorBrush x:Key="FoamBrush" Color="#F6F1EA" />
+    <SolidColorBrush x:Key="MistBrush" Color="#B3A8BC" />
+    <SolidColorBrush x:Key="BiolumeBrush" Color="#FF8A3D" />
+    <SolidColorBrush x:Key="BiolumeBrightBrush" Color="#FFB27A" />
+    <SolidColorBrush x:Key="BrassBrush" Color="#E9C46A" />
+    <SolidColorBrush x:Key="CoralBrush" Color="#FF6B6B" />
+    <SolidColorBrush x:Key="CoralWashBrush" Color="#33FF6B6B" />
+
+    <!-- Moonlight from the top right of the window -->
+    <RadialGradientBrush x:Key="BackdropTintBrush" Center="82%,6%" GradientOrigin="82%,6%" RadiusX="65%" RadiusY="65%">
+      <GradientStop Offset="0" Color="#2EFFC48A" />
+      <GradientStop Offset="0.45" Color="#147A4FA8" />
+      <GradientStop Offset="1" Color="#000A0710" />
+    </RadialGradientBrush>
+
+    <LinearGradientBrush x:Key="HeroScrimBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+      <GradientStop Offset="0" Color="#F00A0710" />
+      <GradientStop Offset="0.42" Color="#B30A0710" />
+      <GradientStop Offset="0.7" Color="#260A0710" />
+      <GradientStop Offset="1" Color="#000A0710" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="CoverPlaceholderBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Offset="0" Color="#CC2E2140" />
+      <GradientStop Offset="1" Color="#CC120C1C" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="GlassBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#B32A1F3A" />
+      <GradientStop Offset="0.35" Color="#A6170F22" />
+      <GradientStop Offset="1" Color="#B30F0A18" />
+    </LinearGradientBrush>
+    <!-- "Act" buttons: pumpkin -->
+    <LinearGradientBrush x:Key="NeonButtonBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#FFB065" />
+      <GradientStop Offset="1" Color="#F2742B" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="NeonButtonHoverBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#FFC88E" />
+      <GradientStop Offset="1" Color="#FF8A3D" />
+    </LinearGradientBrush>
+    <!-- "Play" buttons: candle gold -->
+    <LinearGradientBrush x:Key="AmberButtonBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#F5D586" />
+      <GradientStop Offset="1" Color="#D9A63A" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AmberButtonHoverBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#FBE3A6" />
+      <GradientStop Offset="1" Color="#E9C46A" />
+    </LinearGradientBrush>
+
+    <!-- Media boxes and the player's panels -->
+    <LinearGradientBrush x:Key="MediaPanelVerticalBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Offset="0" Color="#FF2E2142" />
+      <GradientStop Offset="0.5" Color="#FF120C1C" />
+      <GradientStop Offset="1" Color="#FF2E2142" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="MediaPanelHorizontalBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+      <GradientStop Offset="0" Color="#FF2E2142" />
+      <GradientStop Offset="0.5" Color="#FF120C1C" />
+      <GradientStop Offset="1" Color="#FF2E2142" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="MediaPanelDiagonalBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Offset="0" Color="#FF2E2142" />
+      <GradientStop Offset="1" Color="#FF120C1C" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="MediaScrimBrush" Color="#B30C0812" />
+    <SolidColorBrush x:Key="MediaChipBrush" Color="#CC0C0812" />
+    <SolidColorBrush x:Key="PlayerBackdropBrush" Color="#F20A0710" />
+    <SolidColorBrush x:Key="PlayerCardBrush" Color="#FF150F20" />
+    <SolidColorBrush x:Key="PlayerCardLineBrush" Color="#FF2E2142" />
+    <SolidColorBrush x:Key="PlayerCardFootBrush" Color="#FF100B18" />
+    <SolidColorBrush x:Key="PlayerBarBrush" Color="#F2150F20" />
+    <SolidColorBrush x:Key="PlayerBetSlipBrush" Color="#FF120C1C" />
+
+    <!-- Fluent controls -->
+    <Color x:Key="SystemAccentColor">#FF8A3D</Color>
+    <Color x:Key="SystemAccentColorLight1">#FFB27A</Color>
+    <Color x:Key="SystemAccentColorLight2">#FFD3B0</Color>
+    <Color x:Key="SystemAccentColorDark1">#E0682A</Color>
+    <SolidColorBrush x:Key="TextControlBackground" Color="#8C171022" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#A6241A31" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#B3241A31" />
+    <SolidColorBrush x:Key="TextControlBorderBrush" Color="#4D9C7BC2" />
+    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#809C7BC2" />
+    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FF8A3D" />
+    <SolidColorBrush x:Key="ComboBoxBackground" Color="#8C171022" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#A6241A31" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#4D9C7BC2" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#809C7BC2" />
+    <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#F2120C1C" />
+  </Styles.Resources>
+
+  <!-- Window and the season's touch ============================================================= -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="#0A0710" />
+  </Style>
+  <Style Selector=":is(Control).halloween-only">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+  <Style Selector="Image.ngen-logo">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <Style Selector="Border.nav-rail">
+    <Setter Property="BorderBrush" Value="#1A9C7BC2" />
+  </Style>
+  <Style Selector="Border.status-bar">
+    <Setter Property="Background" Value="#CC0C0812" />
+    <Setter Property="BorderBrush" Value="#339C7BC2" />
+  </Style>
+
+  <!-- Navigation: the page you're on glows like a lantern -->
+  <Style Selector="ListBox.rail ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#33241A31" />
+    <Setter Property="BorderBrush" Value="#339C7BC2" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#33FF8A3D" />
+    <Setter Property="BorderBrush" Value="#B3FF8A3D" />
+    <Setter Property="BoxShadow" Value="0 0 18 0 #55FF8A3D" />
+  </Style>
+  <Style Selector="ListBox.rail ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#40FF8A3D" />
+    <Setter Property="BorderBrush" Value="#FF8A3D" />
+  </Style>
+
+  <Style Selector="TextBlock.hero-ngen">
+    <Setter Property="Foreground" Value="#F6F1EA" />
+  </Style>
+  <Style Selector="TextBlock.section-title">
+    <Setter Property="Foreground" Value="#FFB27A" />
+  </Style>
+
+  <!-- Buttons =================================================================================== -->
+  <Style Selector="Button.primary">
+    <Setter Property="Foreground" Value="#1A0A02" />
+    <Setter Property="BorderBrush" Value="#B3FFD3B0" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="#1A0A02" />
+    <Setter Property="BoxShadow" Value="0 0 20 2 #80FF8A3D" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="#1A0A02" />
+  </Style>
+  <Style Selector="Button.primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#66241A31" />
+    <Setter Property="BorderBrush" Value="#339C7BC2" />
+    <Setter Property="Foreground" Value="#B3A8BC" />
+  </Style>
+  <Style Selector="Button.brass">
+    <Setter Property="Foreground" Value="#1E1302" />
+    <Setter Property="BorderBrush" Value="#B3FBE3A6" />
+  </Style>
+  <Style Selector="Button.brass:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="#1E1302" />
+    <Setter Property="BoxShadow" Value="0 0 20 2 #80E9C46A" />
+  </Style>
+  <Style Selector="Button.quiet">
+    <Setter Property="Background" Value="#59171022" />
+    <Setter Property="BorderBrush" Value="#669C7BC2" />
+  </Style>
+  <Style Selector="Button.quiet:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#80241A31" />
+    <Setter Property="BorderBrush" Value="#FF8A3D" />
+    <Setter Property="BoxShadow" Value="0 0 14 0 #40FF8A3D" />
+  </Style>
+  <Style Selector="Border.glow">
+    <Setter Property="BoxShadow" Value="0 0 22 0 #66FF8A3D" />
+  </Style>
+  <Style Selector="Border.glow:pointerover">
+    <Setter Property="BoxShadow" Value="0 0 34 4 #A6FF8A3D" />
+  </Style>
+
+  <!-- Glass surfaces ============================================================================= -->
+  <Style Selector="Border.card">
+    <Setter Property="BorderBrush" Value="#409C7BC2" />
+  </Style>
+  <Style Selector="Border.card:pointerover">
+    <Setter Property="BorderBrush" Value="#D9FF8A3D" />
+    <Setter Property="BoxShadow" Value="0 0 30 2 #4DFF8A3D" />
+  </Style>
+  <Style Selector="Border.card.installed">
+    <Setter Property="BorderBrush" Value="#80E9C46A" />
+  </Style>
+  <Style Selector="Border.card.installed:pointerover">
+    <Setter Property="BorderBrush" Value="#E9C46A" />
+    <Setter Property="BoxShadow" Value="0 0 30 2 #4DE9C46A" />
+  </Style>
+  <Style Selector="Border.panel">
+    <Setter Property="BorderBrush" Value="#339C7BC2" />
+  </Style>
+  <Style Selector="Border.hero">
+    <Setter Property="BorderBrush" Value="#99FF8A3D" />
+    <Setter Property="BoxShadow" Value="0 0 44 0 #33FF8A3D" />
+  </Style>
+  <Style Selector="Border.chip">
+    <Setter Property="Background" Value="#80171022" />
+    <Setter Property="BorderBrush" Value="#33F6F1EA" />
+  </Style>
+  <Style Selector="Border.chip > TextBlock">
+    <Setter Property="Foreground" Value="#D9D0DE" />
+  </Style>
+  <Style Selector="Border.chip.owned">
+    <Setter Property="Background" Value="#D9322408" />
+    <Setter Property="BorderBrush" Value="#80E9C46A" />
+  </Style>
+  <Style Selector="Border.chip.owned > TextBlock">
+    <Setter Property="Foreground" Value="#E9C46A" />
+  </Style>
+  <Style Selector="Border.chip.accent">
+    <Setter Property="BorderBrush" Value="#99FF8A3D" />
+  </Style>
+  <Style Selector="Border.chip.accent > TextBlock">
+    <Setter Property="Foreground" Value="#FFB27A" />
+  </Style>
+  <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BoxShadow" Value="0 0 18 0 #40FF8A3D" />
+  </Style>
+  <Style Selector="ProgressBar">
+    <Setter Property="Background" Value="#66241A31" />
+  </Style>
+  <Style Selector="Border.friends-overlay">
+    <Setter Property="Background" Value="#EB0C0812" />
+    <Setter Property="BorderBrush" Value="#4D9C7BC2" />
+  </Style>
+  <Style Selector="Border.dialog">
+    <Setter Property="Background" Value="#F0120C1C" />
+    <Setter Property="BorderBrush" Value="#80FF8A3D" />
+    <Setter Property="BoxShadow" Value="0 0 50 0 #40FF8A3D" />
+  </Style>
+</Styles>
